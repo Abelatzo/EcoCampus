@@ -157,8 +157,8 @@ export default function AdminPanel() {
           <div className="panel-card">
             <h3>Actividad reciente</h3>
             <ul className="list activity">
-              {activity.map((a, i) => (
-                <li key={i} className="list-row">
+              {activity.map((a) => (
+                <li key={a.id} className="list-row">
                   <div className="list-text">
                     <div className="list-title">{a.text}</div>
                     <div className="list-sub">{a.time}</div>
