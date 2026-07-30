@@ -1,19 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
-
-:root{
-  --green: #2f7a2f;
-  --bg-light: #eef6ec;
-  --panel-bg: #fff;
-  --border: rgba(0,0,0,0.08);
-  --muted: #7e8b7e;
-  --text: #252d25;
-  --pill-pending: #f5a623;
-  --pill-progress: #2a85ff;
-  --pill-resolved: #3d8b3d;
-}
-
-*{box-sizing:border-box}
-html,body,#root{height:100%}
+@use './_variables';
 
 .reports-app{
   font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
@@ -71,7 +56,7 @@ html,body,#root{height:100%}
 .count{margin:1px 0 0 0; color:var(--muted); font-size:10px}
 .btn.new-report{padding:5px 10px; border-radius:5px; font-weight:700; background:var(--green); color:white; border:none; cursor:pointer; font-size:10px}
 
-.search-bar{background:var(--panel-bg); border:1px solid var(--border); border-radius:6px; padding:5px 7px}
+.search-bar{background:var(--panel-bg); border:1px solid var(--border); border-radius:6px; padding:5px 7px; max-width:360px; width:100%;}
 .search-bar input{width:100%; padding:5px 7px; border-radius:5px; border:1px solid rgba(0,0,0,0.08); outline:none; font-size:10px}
 
 .report-list{display:flex; flex-direction:column; gap:5px}

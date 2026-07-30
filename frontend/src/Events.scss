@@ -1,19 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
-
-:root{
-  --green: #2f7a2f;
-  --green-dark: #2b6f2b;
-  --blue: #2a85ff;
-  --orange: #f39c12;
-  --bg-light: #eef6ec;
-  --panel-bg: #fff;
-  --border: rgba(0,0,0,0.08);
-  --muted: #7e8b7e;
-  --text: #252d25;
-}
-
-*{box-sizing:border-box}
-html,body,#root{height:100%}
+@use './_variables';
 
 .events-app{
   font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;

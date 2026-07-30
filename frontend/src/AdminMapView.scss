@@ -1,8 +1,5 @@
-:root{
-  --red: #d9362e;
-  --orange-bg: #fff8ec;
-  --red-bg: #fdecec;
-}
+@use './_variables';
+
 
 .topbar .logo{gap:8px}
 

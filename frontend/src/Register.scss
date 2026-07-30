@@ -1,25 +1,4 @@
-﻿@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
-
-:root {
-  --green-dark: #2f7a2f;
-  --green-mid: #2f7a2f;
-  --green-light: #eaf4ea;
-  --card-bg: #ffffff;
-  --accent: #3d8b3d;
-  --text: #252d25;
-  --muted: #7e8b7e;
-  --border: rgba(0, 0, 0, 0.08);
-}
-
-* {
-  box-sizing: border-box;
-}
-
-html,
-body,
-#root {
-  min-height: 100%;
-}
+@use './_variables';
 
 body {
   margin: 0;
@@ -201,3 +180,4 @@ body {
     grid-template-columns: 1fr;
   }
 }
+

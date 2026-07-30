@@ -1,16 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+@use './_variables';
 
-:root{
-  --green: #2f7a2f;
-  --green-dark: #2b6f2b;
-  --red: #d9362e;
-  --blue: #2a85ff;
-  --bg-light: #eef6ec;
-  --panel-bg: #fff;
-  --border: rgba(0,0,0,0.08);
-  --muted: #7e8b7e;
-  --text: #252d25;
-}
 
 *{box-sizing:border-box}
 html,body,#root{height:100%}
@@ -24,7 +13,7 @@ html,body,#root{height:100%}
 }
 .users-app *{font-size:inherit}
 
-/* Top bar — idéntico a Mapa/Reportes/Eventos Admin */
+/* Top bar â€” idÃ©ntico a Mapa/Reportes/Eventos Admin */
 .users-app .topbar{
   height:52px;
   background:var(--green);
@@ -63,7 +52,7 @@ html,body,#root{height:100%}
 
 /* Toolbar */
 .toolbar{display:flex; align-items:center; gap:8px; margin:10px 0; flex-wrap:wrap}
-.search-bar{flex:1; min-width:200px}
+.search-bar{flex:0 0 auto; max-width:360px; width:100%;}
 .search-bar input{
   width:100%;
   padding:6px 9px;

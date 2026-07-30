@@ -1,15 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+@use './_variables';
 
-:root{
-  --green-dark: #2f7a2f; 
-  --green-mid: #2f7a2f;
-  --green-light: #eaf4ea;
-  --card-bg: #ffffff;
-  --accent: #3d8b3d;
-}
-
-*{box-sizing:border-box}
-body,html,#root{height:100%}
 body{
   font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
   margin:0;
@@ -184,3 +174,4 @@ body{
   .right-panel{width:100%;padding:24px}
   .card{width:100%;padding:28px}
 }
+

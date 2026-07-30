@@ -1,18 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
-
-:root{
-  --green: #2f7a2f;
-  --green-dark:#2b6f2b;
-  --orange: #f39c12;
-  --blue: #2a85ff;
-  --bg-light: #eef6ec;
-  --card-bg: #ffffff;
-  --muted: #819080;
-  --border: rgba(0,0,0,0.06);
-}
-
-*{box-sizing:border-box}
-body,html,#root{height:100%}
+@use './_variables';
 
 .map-app{
   font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
