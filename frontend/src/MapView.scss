@@ -1,0 +1,120 @@
+@use './_variables';
+
+.map-app{
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+  color:#2b2b2b;
+  font-size:13px;
+}
+.map-app *{font-size:inherit}
+
+/* Top bar */
+.topbar{
+  height:52px;
+  background:var(--green);
+  color:white;
+  display:flex;
+  align-items:center;
+  padding:0 18px;
+}
+.topbar .logo{font-weight:700; display:flex; align-items:center; gap:6px; font-size:14px}
+.topbar .logo span{font-size:14px}
+.topbar .nav{flex:1; display:flex; justify-content:center; gap:26px}
+.topbar .nav .nav-item{color:rgba(255,255,255,0.95); text-decoration:none; padding:16px 4px; position:relative; font-weight:600; font-size:13px}
+.topbar .nav .nav-item.active::after{content:''; position:absolute; height:3px; width:36px; background:#fff; bottom:6px; left:50%; transform:translateX(-50%); border-radius:4px}
+.topbar .right{display:flex; align-items:center; gap:10px}
+.topbar .username{opacity:0.95; margin-right:4px; font-size:13px}
+.topbar .avatar{width:24px; height:24px; background:rgba(255,255,255,0.22); border-radius:50%}
+
+.container{display:flex; height:calc(100vh - 52px);}
+
+.sidebar{padding:16px; background:transparent}
+.sidebar.left{width:170px; background:#fff; border-right:1px solid rgba(0,0,0,0.04)}
+.sidebar.left h3{margin:0 0 10px 0; font-size:15px}
+
+.filter-group{margin-bottom:10px}
+.filter-title{font-weight:700; color:#303a30; margin-bottom:5px; font-size:11px; text-transform:uppercase; letter-spacing:0.3px}
+.checkbox{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  margin-bottom:4px;
+  color:#333;
+  font-size:12px;
+  line-height:1.2;
+}
+.checkbox input{width:12px; height:12px; flex-shrink:0}
+.btn.apply{background:var(--green); color:white; border:none; padding:8px 10px; border-radius:6px; cursor:pointer; margin-top:6px; width:100%; font-size:12px; font-weight:600}
+
+.sidebar.right{width:200px; background:transparent; padding:16px; border-left:1px solid rgba(0,0,0,0.04)}
+.sidebar.right h4{margin:0 0 10px 0; font-size:14px}
+.near-list{list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:8px}
+.near-list li{
+  background:#fff;
+  padding:8px 10px;
+  border-radius:5px;
+  font-size:11px;
+  box-shadow:0 1px 3px rgba(0,0,0,0.05);
+  border-left:4px solid #dfefde;
+}
+.near-list li .title{font-weight:600; color:#2b2b2b; margin-bottom:2px; font-size:12px}
+.near-list li .status{font-size:11px; font-weight:600}
+.near-list li.status-green{border-left-color:var(--green)}
+.near-list li.status-green .status{color:var(--green)}
+.near-list li.status-orange{border-left-color:var(--orange)}
+.near-list li.status-orange .status{color:var(--orange)}
+.near-list li.status-blue{border-left-color:var(--blue)}
+.near-list li.status-blue .status{color:var(--blue)}
+
+.map-area{flex:1; display:flex; flex-direction:column; background:var(--bg-light);}
+.map-search{padding:10px 16px}
+.map-search input{width:320px; max-width:60%; padding:7px 10px; border-radius:8px; border:1px solid rgba(0,0,0,0.06); background:#fff; font-size:12px}
+
+.map-canvas{flex:1; position:relative; margin:0 14px 6px 14px; border-radius:2px; overflow:hidden; background-image:linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px); background-size:64px 64px;}
+.map-canvas::after{content:'Mapa interactivo del campus UTCJ'; position:absolute; right:14px; bottom:10px; font-size:11px; color:#8cae8c}
+
+.building{
+  position:absolute;
+  min-width:100px;
+  min-height:56px;
+  background:rgba(47,122,47,0.08);
+  border:1px solid rgba(47,122,47,0.16);
+  border-radius:2px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:rgba(47,122,47,0.9);
+  font-weight:600;
+  font-size:12px;
+  padding:6px;
+  text-align:center;
+}
+.building.small{min-width:74px; min-height:42px; font-size:11px}
+
+.pin{width:11px; height:11px; border-radius:50% 50% 50% 0; position:absolute; left:50%; transform:translateX(-50%) rotate(-45deg); top:-6px; box-shadow:0 2px 4px rgba(0,0,0,0.15)}
+.pin.green{background:var(--green)}
+.pin.orange{background:var(--orange)}
+.pin.blue{background:var(--blue)}
+
+.popup{position:absolute; transform:translate(-50%,0); width:190px; background:var(--card-bg); border-radius:6px; box-shadow:0 8px 20px rgba(0,0,0,0.12); padding:10px; border:1px solid rgba(0,0,0,0.06); z-index:5}
+.popup::before{content:''; position:absolute; left:50%; top:-8px; transform:translateX(-50%); border-width:0 8px 8px 8px; border-style:solid; border-color: transparent transparent #fff transparent}
+.popup-title{font-weight:700; color:var(--green-dark); margin-bottom:4px; font-size:12px}
+.popup-body{color:var(--muted); font-size:11px; margin-bottom:8px; line-height:1.5}
+.popup-actions{display:flex; gap:6px}
+.btn.small{padding:6px 8px; border-radius:5px; background:var(--green); color:white; border:none; cursor:pointer; font-size:11px; font-weight:600}
+.btn.small.outline{background:transparent; border:1px solid var(--green); color:var(--green)}
+
+.bottom-bar{height:44px; display:flex; align-items:center; justify-content:space-between; padding:8px 18px; border-top:1px solid rgba(0,0,0,0.03); background:#fff}
+.legend{display:flex; align-items:center; gap:12px; color:var(--muted); font-size:11px; white-space:nowrap}
+.legend .dot{display:inline-block; width:9px; height:9px; border-radius:50%; flex-shrink:0}
+.legend .dot.green{background:var(--green)}
+.legend .dot.orange{background:var(--orange)}
+.legend .dot.blue{background:var(--blue)}
+
+.stats{font-size:11px; color:#999; white-space:nowrap}
+
+@media (max-width:900px){
+  .sidebar.left{display:none}
+  .sidebar.right{display:none}
+  .map-search input{width:70%}
+  .map-canvas{margin:0 8px}
+}

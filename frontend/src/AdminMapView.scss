@@ -1,0 +1,69 @@
+@use './_variables';
+
+
+.topbar .logo{gap:8px}
+
+.topbar .left{display:flex; align-items:center; gap:8px}
+.badge.admin-badge{
+  background:#f5a623;
+  color:#fff;
+  font-size:8px;
+  font-weight:700;
+  padding:2px 7px;
+  border-radius:9px;
+  letter-spacing:0.3px;
+  flex-shrink:0;
+}
+.topbar .admin-avatar{background:#f5a623}
+
+.map-app.admin .topbar .nav{gap:18px}
+
+.admin-tools{margin-top:14px; padding-top:10px; border-top:1px solid rgba(0,0,0,0.06)}
+.admin-tools-title{font-weight:700; font-size:11px; color:#303a30; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.3px}
+.btn.tool{
+  display:block;
+  width:100%;
+  text-align:left;
+  padding:7px 9px;
+  border-radius:6px;
+  font-size:11px;
+  font-weight:600;
+  margin-bottom:6px;
+  cursor:pointer;
+  background:#fff;
+}
+.btn.tool.edit{border:1px solid #f5a623; color:#c67c0f; background:#fff8ec}
+.btn.tool.add{border:none; background:var(--green); color:#fff}
+.btn.tool.delete{border:1px solid var(--red); color:var(--red); background:#fdecec}
+
+.pin.red{background:var(--red)}
+.legend .dot.red{background:var(--red)}
+
+.popup.edit{
+  border-top:3px solid #f5a623;
+  width:200px;
+}
+.popup-title.edit-title{color:#c67c0f; display:flex; align-items:center; gap:4px}
+.form-field{display:flex; flex-direction:column; gap:3px; margin-bottom:8px; font-size:11px; color:#555}
+.form-field span{font-weight:600; color:#333}
+.form-field input,
+.form-field select{
+  padding:6px 8px;
+  border-radius:5px;
+  border:1px solid rgba(0,0,0,0.12);
+  font-size:11px;
+  background:#fafafa;
+  color:#888;
+}
+
+.near-list li.status-red{border-left-color:var(--red)}
+.near-list li.status-red .status{color:var(--red)}
+.near-list li .edit-link{
+  display:block;
+  margin-top:3px;
+  font-size:10px;
+  color:var(--muted);
+  text-decoration:none;
+}
+.near-list li.status-orange .edit-link{color:var(--orange)}
+.near-list li.status-red .edit-link{color:var(--red)}
