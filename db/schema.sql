@@ -51,6 +51,12 @@ CREATE TABLE IF NOT EXISTS public.reportes (
 );
 
 -- =============================================
+-- ÍNDICES: FKs de reportes (sin índice = scan completo en queries por bote_malla o usuario)
+-- =============================================
+CREATE INDEX IF NOT EXISTS idx_reportes_bote_malla_id ON public.reportes(bote_malla_id);
+CREATE INDEX IF NOT EXISTS idx_reportes_usuario_id ON public.reportes(usuario_id);
+
+-- =============================================
 -- TRIGGERS: updated_at automático
 -- =============================================
 CREATE OR REPLACE FUNCTION update_updated_at()
@@ -59,7 +65,8 @@ BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path = '';
 
 CREATE TRIGGER trg_usuarios_updated_at
   BEFORE UPDATE ON public.usuarios
@@ -93,7 +100,8 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path = '';
 
 CREATE TRIGGER trg_sync_bote_malla_estatus
   AFTER INSERT OR UPDATE ON public.reportes
@@ -107,35 +115,54 @@ ALTER TABLE public.bote_mallas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reportes ENABLE ROW LEVEL SECURITY;
 
 -- Helper: obtener rol del usuario autenticado
+-- search_path fijo ('') y EXECUTE restringido a authenticated: evita hijack
+-- via search_path y llamada directa anon a /rest/v1/rpc/get_user_rol
 CREATE OR REPLACE FUNCTION get_user_rol()
 RETURNS TEXT AS $$
   SELECT rol FROM public.usuarios WHERE id = auth.uid();
-$$ LANGUAGE sql SECURITY DEFINER STABLE;
+$$ LANGUAGE sql SECURITY DEFINER STABLE
+SET search_path = '';
+
+REVOKE EXECUTE ON FUNCTION public.get_user_rol() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_user_rol() TO authenticated;
 
 -- -----------------------------------------------
 -- POLÍTICAS: usuarios
 -- -----------------------------------------------
-CREATE POLICY "usuarios: ver propio perfil"
+-- SELECT consolidado en una sola policy (propio perfil o admin) para evitar
+-- multiple_permissive_policies; auth.uid() envuelto en (select ...) para
+-- que el planner lo evalúe una vez por query, no por fila
+CREATE POLICY "usuarios: ver propio perfil o admin ve todos"
   ON public.usuarios FOR SELECT
-  USING (id = auth.uid());
+  USING (id = (select auth.uid()) OR get_user_rol() = 'administrador');
 
 CREATE POLICY "usuarios: editar propio perfil"
   ON public.usuarios FOR UPDATE
-  USING (id = auth.uid());
+  USING (id = (select auth.uid()));
 
-CREATE POLICY "usuarios: admin ve todos"
-  ON public.usuarios FOR SELECT
+CREATE POLICY "usuarios: admin elimina"
+  ON public.usuarios FOR DELETE
   USING (get_user_rol() = 'administrador');
 
 -- -----------------------------------------------
 -- POLÍTICAS: bote_mallas
 -- -----------------------------------------------
+-- Escritura separada por comando (no FOR ALL) para no duplicar el SELECT
+-- ya cubierto por "lectura autenticados"
 CREATE POLICY "bote_mallas: lectura autenticados"
   ON public.bote_mallas FOR SELECT
-  USING (auth.uid() IS NOT NULL);
+  USING ((select auth.uid()) IS NOT NULL);
 
-CREATE POLICY "bote_mallas: escritura solo admin"
-  ON public.bote_mallas FOR ALL
+CREATE POLICY "bote_mallas: admin inserta"
+  ON public.bote_mallas FOR INSERT
+  WITH CHECK (get_user_rol() = 'administrador');
+
+CREATE POLICY "bote_mallas: admin actualiza"
+  ON public.bote_mallas FOR UPDATE
+  USING (get_user_rol() = 'administrador');
+
+CREATE POLICY "bote_mallas: admin elimina"
+  ON public.bote_mallas FOR DELETE
   USING (get_user_rol() = 'administrador');
 
 -- -----------------------------------------------
@@ -143,19 +170,28 @@ CREATE POLICY "bote_mallas: escritura solo admin"
 -- -----------------------------------------------
 CREATE POLICY "reportes: lectura todos autenticados"
   ON public.reportes FOR SELECT
-  USING (auth.uid() IS NOT NULL);
+  USING ((select auth.uid()) IS NOT NULL);
 
 CREATE POLICY "reportes: estudiante puede crear"
   ON public.reportes FOR INSERT
   WITH CHECK (
-    auth.uid() IS NOT NULL AND
-    usuario_id = auth.uid()
+    (select auth.uid()) IS NOT NULL AND
+    usuario_id = (select auth.uid())
   );
 
-CREATE POLICY "reportes: admin ve todos"
-  ON public.reportes FOR SELECT
-  USING (get_user_rol() = 'administrador');
-
-CREATE POLICY "reportes: admin puede actualizar"
+-- Un solo UPDATE: admin siempre, estudiante solo su propio reporte pendiente
+-- (permite cancelar/editar antes de que entre en proceso)
+CREATE POLICY "reportes: actualizar propio pendiente o admin"
   ON public.reportes FOR UPDATE
+  USING (
+    get_user_rol() = 'administrador' OR
+    (usuario_id = (select auth.uid()) AND estatus = 'pendiente')
+  )
+  WITH CHECK (
+    get_user_rol() = 'administrador' OR
+    usuario_id = (select auth.uid())
+  );
+
+CREATE POLICY "reportes: admin elimina"
+  ON public.reportes FOR DELETE
   USING (get_user_rol() = 'administrador');

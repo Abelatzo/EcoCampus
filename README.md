@@ -31,7 +31,9 @@ PWA para la digitalización del seguimiento y gestión de estaciones de reciclaj
 ```
 EcoCampus/
 ├── db/
-│   └── schema.sql        # Schema de base de datos (tablas, triggers, RLS)
+│   ├── schema.sql         # Schema de base de datos (tablas, triggers, RLS)
+│   ├── storage.sql        # Bucket + políticas para fotos de reportes
+│   └── seed.sql           # Datos de prueba de bote_mallas (levantamiento en campus)
 ├── backend/              # Node.js + Express (rama abel/backend)
 ├── frontend/             # React + Vite PWA (ramas diego y david)
 ├── .env.example          # Plantilla de variables de entorno
@@ -106,6 +108,10 @@ El schema está en `db/schema.sql`. Incluye:
 - Triggers de `updated_at` automático
 - Trigger de sincronización de estatus entre reportes y bote_mallas
 - Row Level Security (RLS) con políticas por rol
+
+`db/storage.sql` crea el bucket `reportes-fotos` (lectura pública, escritura solo autenticados en su propia carpeta).
+
+`db/seed.sql` carga los `bote_mallas` levantados en campus (edificios A, C, H, I, J, cafetería, guardería). Coordenadas son placeholder — pendiente actualizar con GPS real cuando el mapa (rama `diego/frontend`) esté listo.
 
 ### Roles
 
