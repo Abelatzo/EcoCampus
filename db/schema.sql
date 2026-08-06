@@ -145,6 +145,11 @@ CREATE POLICY "usuarios: editar propio perfil"
   ON public.usuarios FOR UPDATE
   USING (id = (select auth.uid()));
 
+-- Bloquea escalar rol via UPDATE: RLS solo filtra filas, no columnas.
+-- Sin esto, el usuario podia auto-asignarse rol='administrador'.
+REVOKE UPDATE ON public.usuarios FROM authenticated;
+GRANT UPDATE (nombre, email, updated_at) ON public.usuarios TO authenticated;
+
 CREATE POLICY "usuarios: admin elimina"
   ON public.usuarios FOR DELETE
   USING (get_user_rol() = 'administrador');
