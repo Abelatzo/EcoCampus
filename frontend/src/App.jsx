@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import './index.css'
 import Login from './Login'
 import Register from './Register'
+import ForgotPassword from './ForgotPassword'
+import ResetPassword from './ResetPassword'
 import MapView from './MapView'
 import Reports from './Reports'
 import AdminReports from './AdminReports'
@@ -17,6 +19,8 @@ function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/map" element={<MapView />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/events" element={<Events />} />
