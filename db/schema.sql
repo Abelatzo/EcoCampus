@@ -136,6 +136,11 @@ CREATE POLICY "usuarios: ver propio perfil o admin ve todos"
   ON public.usuarios FOR SELECT
   USING (id = (select auth.uid()) OR get_user_rol() = 'administrador');
 
+CREATE POLICY "usuarios: insertar en registro"
+  ON public.usuarios FOR INSERT
+  TO authenticated
+  WITH CHECK (id = (select auth.uid()) AND rol = 'estudiante');
+
 CREATE POLICY "usuarios: editar propio perfil"
   ON public.usuarios FOR UPDATE
   USING (id = (select auth.uid()));
