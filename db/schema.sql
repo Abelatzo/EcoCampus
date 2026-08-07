@@ -154,6 +154,26 @@ CREATE POLICY "usuarios: admin elimina"
   ON public.usuarios FOR DELETE
   USING (get_user_rol() = 'administrador');
 
+-- Cambio de rol vía backend: SECURITY DEFINER bypassa el REVOKE UPDATE
+-- de la columna rol, por eso valida admin dentro del body (si no,
+-- cualquier authenticated podria auto-escalarse o cambiar rol ajeno)
+CREATE OR REPLACE FUNCTION public.cambiar_rol_usuario(target_id UUID, nuevo_rol TEXT)
+RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = ''
+AS $function$
+BEGIN
+  IF public.get_user_rol() <> 'administrador' THEN
+    RAISE EXCEPTION 'no autorizado';
+  END IF;
+
+  UPDATE public.usuarios SET rol = nuevo_rol WHERE id = target_id;
+END;
+$function$;
+
+REVOKE EXECUTE ON FUNCTION public.cambiar_rol_usuario(UUID, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.cambiar_rol_usuario(UUID, TEXT) TO authenticated;
+
 -- -----------------------------------------------
 -- POLÍTICAS: bote_mallas
 -- -----------------------------------------------
