@@ -12,8 +12,8 @@ import {
 const router = Router()
 
 router.get('/', verificarAuth, soloAdmin, obtenerUsuarios)
-router.get('/:id', verificarAuth, obtenerUsuario)
 router.patch('/:id/rol', verificarAuth, soloAdmin, cambiarRol)
+router.get('/:id', verificarAuth, obtenerUsuario)
 router.patch('/:id', verificarAuth, editarUsuario)
 router.delete('/:id', verificarAuth, soloAdmin, desactivarUsuario)
 
