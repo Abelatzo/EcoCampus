@@ -10,10 +10,11 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- TABLA: usuarios
 -- Extiende auth.users de Supabase con rol y datos extra
 -- =============================================
+-- Correo institucional UTCJ: al + matricula + @utcj.edu.mx (ej. al24311267@utcj.edu.mx)
 CREATE TABLE IF NOT EXISTS public.usuarios (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   nombre TEXT NOT NULL,
-  email TEXT NOT NULL UNIQUE,
+  email TEXT NOT NULL UNIQUE CHECK (email ~* '^al[0-9]+@utcj\.edu\.mx$'),
   rol TEXT NOT NULL DEFAULT 'estudiante' CHECK (rol IN ('estudiante', 'administrador')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
