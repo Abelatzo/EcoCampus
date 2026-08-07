@@ -43,7 +43,13 @@ export const cambiarRol = async (req, res) => {
     nuevo_rol: rol
   })
 
-  if (error) return res.status(500).json({ error: error.message })
+  if (error) {
+    if (error.message.includes('no autorizado')) {
+      return res.status(403).json({ error: 'No tienes permiso para cambiar roles' })
+    }
+    return res.status(500).json({ error: error.message })
+  }
+
   res.json({ message: 'Rol actualizado correctamente', rol })
 }
 
