@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import campusMap from './assets/ImagenMapa.jpeg'
+import { useDraggableBackground } from './useDraggableBackground'
 import './AdminMapView.scss'
 
 export default function AdminMapView() {
-  const [editing, setEditing] = useState(true) 
+  const [editing, setEditing] = useState(true)
+  const { position, onPointerDown, onPointerMove, onPointerUp } = useDraggableBackground()
 
   return (
     <div className="map-app admin">
@@ -59,34 +62,15 @@ export default function AdminMapView() {
             <input placeholder="Buscar edificio o punto..." />
           </div>
 
-          <div className="map-canvas" role="img" aria-label="Mapa interactivo del campus - placeholder">
-
-            <div className="building" style={{left:'7%', top:'8%'}}>
-              Edificio A
-              <div className="pin green" />
-            </div>
-            <div className="building" style={{left:'24%', top:'20%'}}>
-              Edificio B
-              <div className="pin green" />
-            </div>
-            <div className="building" style={{left:'41%', top:'8%'}}>
-              Edificio C
-              <div className="pin blue" />
-            </div>
-            <div className="building small" style={{left:'59%', top:'18%'}}>
-              Edificio D
-              <div className="pin green" />
-            </div>
-            <div className="building" style={{left:'72%', top:'8%'}}>
-              Rectoría
-              <div className="pin red" />
-            </div>
-            <div className="building" style={{left:'10%', top:'42%'}}>Biblioteca</div>
-            <div className="building" style={{left:'32%', top:'40%'}}>
-              Cafetería
-              <div className="pin orange" />
-            </div>
-            <div className="building" style={{left:'52%', top:'40%'}}>Edificio E</div>
+          <div className="map-canvas" role="img" aria-label="Mapa interactivo del campus">
+            <div
+              className="map-bg"
+              style={{ backgroundImage: `url(${campusMap})`, backgroundPosition: `${position.x}% ${position.y}%` }}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onPointerLeave={onPointerUp}
+            />
 
             {editing && (
               <div className="popup edit" style={{left:'55%', top:'27%'}}>
