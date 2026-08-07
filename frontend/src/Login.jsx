@@ -29,7 +29,7 @@ export default function Login() {
               <input type="password" placeholder="**********" />
             </label>
 
-            <a className="forgot" href="#">¿Olvidaste tu contraseña?</a>
+            <Link to="/forgot-password" className="forgot">¿Olvidaste tu contraseña?</Link>
 
             <button className="btn primary" type="submit">Iniciar sesión</button>
 

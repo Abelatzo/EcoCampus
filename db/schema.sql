@@ -136,9 +136,19 @@ CREATE POLICY "usuarios: ver propio perfil o admin ve todos"
   ON public.usuarios FOR SELECT
   USING (id = (select auth.uid()) OR get_user_rol() = 'administrador');
 
+CREATE POLICY "usuarios: insertar en registro"
+  ON public.usuarios FOR INSERT
+  TO authenticated
+  WITH CHECK (id = (select auth.uid()) AND rol = 'estudiante');
+
 CREATE POLICY "usuarios: editar propio perfil"
   ON public.usuarios FOR UPDATE
   USING (id = (select auth.uid()));
+
+-- Bloquea escalar rol via UPDATE: RLS solo filtra filas, no columnas.
+-- Sin esto, el usuario podia auto-asignarse rol='administrador'.
+REVOKE UPDATE ON public.usuarios FROM authenticated;
+GRANT UPDATE (nombre, email, updated_at) ON public.usuarios TO authenticated;
 
 CREATE POLICY "usuarios: admin elimina"
   ON public.usuarios FOR DELETE
