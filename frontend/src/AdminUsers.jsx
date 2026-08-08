@@ -2,14 +2,14 @@ import { Link } from 'react-router-dom'
 import './AdminUsers.scss'
 
 const users = [
-  { name: 'Araiza López Diego A.', email: 'daraiza959@utcj.edu.mx', career: 'Desarrollo de Software', role: 'Usuario', date: '12/06/2026' },
-  { name: 'Barraza Ramírez Abel A.', email: 'abelbarraza@utcj.edu.mx', career: 'Desarrollo de Software', role: 'Usuario', date: '12/06/2026' },
-  { name: 'García Martínez Laura', email: 'lgarcia@utcj.edu.mx', career: 'Mecatrónica', role: 'Usuario', date: '13/06/2026' },
-  { name: 'Torres Reyes Carlos', email: 'ctorres@utcj.edu.mx', career: 'Administración', role: 'Usuario', date: '14/06/2026' },
-  { name: 'Ramírez Ochoa Patricia', email: 'prochoam@utcj.edu.mx', career: 'Desarrollo de Software', role: 'Administrador', date: '01/06/2026' },
-  { name: 'López Vega Sofía', email: 'slopezv@utcj.edu.mx', career: 'Contabilidad', role: 'Usuario', date: '15/06/2026' },
-  { name: 'Mendoza Cruz Hugo', email: 'hmendoza@utcj.edu.mx', career: 'Logística', role: 'Usuario', date: '16/06/2026' },
-  { name: 'Soto Ibarra Valeria', email: 'vsoto@utcj.edu.mx', career: 'Mecatrónica', role: 'Usuario', date: '17/06/2026' },
+  { name: 'Araiza López Diego A.', email: 'daraiza959@utcj.edu.mx', role: 'Usuario', date: '12/06/2026' },
+  { name: 'Barraza Ramírez Abel A.', email: 'abelbarraza@utcj.edu.mx', role: 'Usuario', date: '12/06/2026' },
+  { name: 'García Martínez Laura', email: 'lgarcia@utcj.edu.mx', role: 'Usuario', date: '13/06/2026' },
+  { name: 'Torres Reyes Carlos', email: 'ctorres@utcj.edu.mx', role: 'Usuario', date: '14/06/2026' },
+  { name: 'Ramírez Ochoa Patricia', email: 'prochoam@utcj.edu.mx', role: 'Administrador', date: '01/06/2026' },
+  { name: 'López Vega Sofía', email: 'slopezv@utcj.edu.mx', role: 'Usuario', date: '15/06/2026' },
+  { name: 'Mendoza Cruz Hugo', email: 'hmendoza@utcj.edu.mx', role: 'Usuario', date: '16/06/2026' },
+  { name: 'Soto Ibarra Valeria', email: 'vsoto@utcj.edu.mx', role: 'Usuario', date: '17/06/2026' },
 ]
 
 export default function AdminUsers() {
@@ -41,7 +41,7 @@ export default function AdminUsers() {
 
         <div className="toolbar">
           <div className="search-bar">
-            <input placeholder="Buscar por nombre, correo o carrera..." />
+            <input placeholder="Buscar por nombre o correo..." />
           </div>
           <div className="role-select">
             <select defaultValue="Todos">
@@ -51,7 +51,6 @@ export default function AdminUsers() {
             </select>
           </div>
           <span className="count">124 usuarios registrados</span>
-          <button className="btn new-user">+ Agregar usuario</button>
         </div>
 
         <div className="table-wrap">
@@ -61,7 +60,6 @@ export default function AdminUsers() {
                 <th className="col-num">#</th>
                 <th>Nombre completo</th>
                 <th>Correo institucional</th>
-                <th>Carrera</th>
                 <th>Rol</th>
                 <th>Fecha registro</th>
                 <th>Acciones</th>
@@ -73,7 +71,6 @@ export default function AdminUsers() {
                   <td className="col-num">{i + 1}</td>
                   <td>{u.name}</td>
                   <td className="email-cell">{u.email}</td>
-                  <td>{u.career}</td>
                   <td>
                     <span className={`role-pill ${u.role === 'Administrador' ? 'admin' : 'user'}`}>
                       {u.role}

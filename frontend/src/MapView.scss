@@ -69,31 +69,10 @@
 .map-search{padding:10px 16px}
 .map-search input{width:320px; max-width:60%; padding:7px 10px; border-radius:8px; border:1px solid rgba(0,0,0,0.06); background:#fff; font-size:12px}
 
-.map-canvas{flex:1; position:relative; margin:0 14px 6px 14px; border-radius:2px; overflow:hidden; background-image:linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px); background-size:64px 64px;}
-.map-canvas::after{content:'Mapa interactivo del campus UTCJ'; position:absolute; right:14px; bottom:10px; font-size:11px; color:#8cae8c}
-
-.building{
-  position:absolute;
-  min-width:100px;
-  min-height:56px;
-  background:rgba(47,122,47,0.08);
-  border:1px solid rgba(47,122,47,0.16);
-  border-radius:2px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  color:rgba(47,122,47,0.9);
-  font-weight:600;
-  font-size:12px;
-  padding:6px;
-  text-align:center;
-}
-.building.small{min-width:74px; min-height:42px; font-size:11px}
-
-.pin{width:11px; height:11px; border-radius:50% 50% 50% 0; position:absolute; left:50%; transform:translateX(-50%) rotate(-45deg); top:-6px; box-shadow:0 2px 4px rgba(0,0,0,0.15)}
-.pin.green{background:var(--green)}
-.pin.orange{background:var(--orange)}
-.pin.blue{background:var(--blue)}
+.map-canvas{flex:1; position:relative; margin:0 14px 6px 14px; border-radius:2px; overflow:hidden; background:#e9ece7;}
+.map-canvas .map-bg{position:absolute; inset:0; background-repeat:no-repeat; background-size:cover; cursor:grab; touch-action:none; user-select:none;}
+.map-canvas .map-bg:active{cursor:grabbing}
+.map-canvas::after{content:'Mapa interactivo del campus UTCJ'; position:absolute; right:14px; bottom:10px; font-size:11px; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,0.6); z-index:1}
 
 .popup{position:absolute; transform:translate(-50%,0); width:190px; background:var(--card-bg); border-radius:6px; box-shadow:0 8px 20px rgba(0,0,0,0.12); padding:10px; border:1px solid rgba(0,0,0,0.06); z-index:5}
 .popup::before{content:''; position:absolute; left:50%; top:-8px; transform:translateX(-50%); border-width:0 8px 8px 8px; border-style:solid; border-color: transparent transparent #fff transparent}
