@@ -79,7 +79,9 @@ export default function Login() {
 
             {error && <p style={{ color: 'red', fontSize: '14px' }}>{error}</p>}
 
-            <a className="forgot" href="#">¿Olvidaste tu contraseña?</a>
+            {error && <p style={{ color: 'red', fontSize: '14px' }}>{error}</p>}
+
+            <Link to="/forgot-password" className="forgot">¿Olvidaste tu contraseña?</Link>
 
             <button className="btn primary" type="submit">Iniciar sesión</button>
 
