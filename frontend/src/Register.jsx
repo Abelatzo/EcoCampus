@@ -25,11 +25,6 @@ export default function Register() {
               </label>
 
               <label className="field">
-                <span className="label-text">Carrera</span>
-                <input type="text" placeholder="Desarrollo de Software Multiplataforma" />
-              </label>
-
-              <label className="field">
                 <span className="label-text">Correo institucional</span>
                 <input type="email" placeholder="usuario@utcj.edu.mx" />
               </label>
@@ -37,11 +32,6 @@ export default function Register() {
               <label className="field">
                 <span className="label-text">Contraseña</span>
                 <input type="password" placeholder="**********" />
-              </label>
-
-              <label className="field">
-                <span className="label-text">Número de control</span>
-                <input type="text" placeholder="Ej. 24321254" />
               </label>
 
               <label className="field">
