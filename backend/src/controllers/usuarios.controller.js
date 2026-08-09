@@ -66,6 +66,17 @@ export const editarUsuario = async (req, res) => {
     return res.status(403).json({ error: 'No puedes editar perfiles de otros usuarios' })
   }
 
+  // Verificar que el usuario existe
+  const { data: existe } = await supabase
+    .from('usuarios')
+    .select('id')
+    .eq('id', id)
+    .single()
+
+  if (!existe) {
+    return res.status(404).json({ error: 'Usuario no encontrado' })
+  }
+
   const campos = {}
   if (nombre) campos.nombre = nombre
   if (email) campos.email = email
@@ -77,7 +88,6 @@ export const editarUsuario = async (req, res) => {
 
   if (error) return res.status(500).json({ error: error.message })
 
-  // Consulta separada para devolver el usuario actualizado
   const { data, error: errorSelect } = await supabase
     .from('usuarios')
     .select('id, nombre, email, rol')

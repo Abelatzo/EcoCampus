@@ -39,12 +39,26 @@ export const estadoMapa = async (req, res) => {
   res.json(data)
 }
 
-// POST /api/reportes — crear reporte
 export const crearReporte = async (req, res) => {
+  if (!req.body) {
+    return res.status(400).json({ error: 'El cuerpo de la petición es requerido' })
+  }
+
   const { bote_malla_id, comentario, foto_url } = req.body
 
   if (!bote_malla_id) {
     return res.status(400).json({ error: 'bote_malla_id es requerido' })
+  }
+
+  // Verificar que el bote-malla existe
+  const { data: boteMalla } = await supabase
+    .from('bote_mallas')
+    .select('id')
+    .eq('id', bote_malla_id)
+    .single()
+
+  if (!boteMalla) {
+    return res.status(404).json({ error: 'El bote-malla no existe' })
   }
 
   // Verificar que no haya un reporte activo del mismo bote-malla
