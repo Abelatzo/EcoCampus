@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import './Reports.scss'
 
@@ -31,7 +32,16 @@ const reports = [
   },
 ]
 
+const buildings = [
+  'Edificio A', 'Edificio B', 'Edificio C', 'Edificio E', 'Edificio F',
+  'Edificio G', 'Edificio H', 'Edificio I', 'Edificio J', 'Edificio K',
+  'Edificio L', 'Edificio M', 'Edificio N', 'Edificio O', 'Edificio Q',
+]
+
 export default function Reports() {
+  const [showModal, setShowModal] = useState(false)
+  const [building, setBuilding] = useState(buildings[0])
+
   return (
     <div className="reports-app">
       <header className="topbar">
@@ -76,7 +86,7 @@ export default function Reports() {
               <h2>Mis Reportes</h2>
               <p className="count">{reports.length} reportes encontrados</p>
             </div>
-            <button className="btn new-report">+ Nuevo Reporte</button>
+            <button className="btn new-report" onClick={() => setShowModal(true)}>+ Nuevo Reporte</button>
           </div>
 
           <div className="search-bar">
@@ -114,6 +124,54 @@ export default function Reports() {
           </div>
         </main>
       </div>
+
+      {showModal && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h3>Nuevo Reporte</h3>
+              <button className="modal-close" onClick={() => setShowModal(false)}>✕</button>
+            </div>
+
+            <div className="modal-body">
+              <label className="modal-field">
+                <span>Edificio</span>
+                <div className="type-toggle">
+                  {buildings.map((b) => (
+                    <button
+                      key={b}
+                      className={`type-btn ${building === b ? 'active' : ''}`}
+                      onClick={() => setBuilding(b)}
+                    >
+                      {b}
+                    </button>
+                  ))}
+                </div>
+              </label>
+
+              <label className="modal-field">
+                <span>Título</span>
+                <input type="text" placeholder="Ej. Contenedor lleno — planta baja" />
+              </label>
+
+              <label className="modal-field">
+                <span>Detalle de ubicación (opcional)</span>
+                <input type="text" placeholder="Ej. Plástico y aluminio, entrada principal..." />
+              </label>
+
+              <label className="modal-field">
+                <span>Descripción</span>
+                <textarea rows="4" placeholder="Describe el reporte..." />
+              </label>
+            </div>
+
+            <div className="modal-actions">
+              <button className="btn outline" onClick={() => setShowModal(false)}>Cancelar</button>
+              <button className="btn primary" onClick={() => setShowModal(false)}>Crear reporte</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

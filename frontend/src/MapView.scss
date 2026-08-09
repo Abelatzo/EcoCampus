@@ -92,8 +92,15 @@
 .stats{font-size:11px; color:#999; white-space:nowrap}
 
 @media (max-width:900px){
-  .sidebar.left{display:none}
-  .sidebar.right{display:none}
-  .map-search input{width:70%}
-  .map-canvas{margin:0 8px}
+  .map-app .topbar{flex-direction:column; height:auto; align-items:center; gap:8px; padding:10px 14px}
+  .map-app .topbar .nav{flex:0 0 auto; width:100%; justify-content:center; flex-wrap:wrap; gap:12px}
+  .map-app .topbar .right{flex:0 0 auto}
+  .map-app .container{flex-direction:column; height:auto}
+  .map-app .sidebar.left{width:100%; border-right:none; border-bottom:1px solid rgba(0,0,0,0.06)}
+  .map-app .sidebar.right{width:100%; border-left:none; border-top:1px solid rgba(0,0,0,0.06)}
+  .map-app .map-search input{width:70%}
+  .map-app .map-canvas{margin:0 8px; min-height:55vh}
+  .map-app .bottom-bar{flex-direction:column; align-items:flex-start; height:auto; gap:4px; padding:8px 14px}
+  .map-app .legend{flex-wrap:wrap; white-space:normal}
+  .map-app .stats{white-space:normal}
 }

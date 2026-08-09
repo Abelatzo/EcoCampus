@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import './AdminReports.scss'
 
@@ -37,7 +38,17 @@ const states = [
   { label: 'Resuelto', type: 'resolved' },
 ]
 
+const buildings = [
+  'Edificio A', 'Edificio B', 'Edificio C', 'Edificio E', 'Edificio F',
+  'Edificio G', 'Edificio H', 'Edificio I', 'Edificio J', 'Edificio K',
+  'Edificio L', 'Edificio M', 'Edificio N', 'Edificio O', 'Edificio Q',
+]
+
 export default function ReportsAdmin() {
+  const [showModal, setShowModal] = useState(false)
+  const [building, setBuilding] = useState(buildings[0])
+  const [reportStatus, setReportStatus] = useState('pending')
+
   return (
     <div className="reports-app admin">
       <header className="topbar">
@@ -93,7 +104,7 @@ export default function ReportsAdmin() {
               <h2>Todos los Reportes</h2>
               <p className="count">47 reportes en total — vista de administrador</p>
             </div>
-            <button className="btn new-report">+ Nuevo Reporte</button>
+            <button className="btn new-report" onClick={() => setShowModal(true)}>+ Nuevo Reporte</button>
           </div>
 
           <div className="search-bar">
@@ -151,6 +162,69 @@ export default function ReportsAdmin() {
           </div>
         </main>
       </div>
+
+      {showModal && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h3>Nuevo Reporte</h3>
+              <button className="modal-close" onClick={() => setShowModal(false)}>✕</button>
+            </div>
+
+            <div className="modal-body">
+              <label className="modal-field">
+                <span>Edificio</span>
+                <div className="type-toggle">
+                  {buildings.map((b) => (
+                    <button
+                      key={b}
+                      className={`type-btn ${building === b ? 'active' : ''}`}
+                      onClick={() => setBuilding(b)}
+                    >
+                      {b}
+                    </button>
+                  ))}
+                </div>
+              </label>
+
+              <label className="modal-field">
+                <span>Título</span>
+                <input type="text" placeholder="Ej. Contenedor lleno — planta baja" />
+              </label>
+
+              <label className="modal-field">
+                <span>Detalle de ubicación (opcional)</span>
+                <input type="text" placeholder="Ej. Plástico y aluminio, entrada principal..." />
+              </label>
+
+              <label className="modal-field">
+                <span>Estado inicial</span>
+                <div className="type-toggle">
+                  {states.map((s) => (
+                    <button
+                      key={s.type}
+                      className={`type-btn ${reportStatus === s.type ? 'active' : ''}`}
+                      onClick={() => setReportStatus(s.type)}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </label>
+
+              <label className="modal-field">
+                <span>Descripción</span>
+                <textarea rows="4" placeholder="Describe el reporte..." />
+              </label>
+            </div>
+
+            <div className="modal-actions">
+              <button className="btn outline" onClick={() => setShowModal(false)}>Cancelar</button>
+              <button className="btn primary" onClick={() => setShowModal(false)}>Crear reporte</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -124,19 +124,6 @@ body {
   border-color: var(--accent);
 }
 
-.register-page .terms {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 13px;
-  color: #3a4b3a;
-}
-
-.register-page .terms input {
-  width: 18px;
-  height: 18px;
-}
-
 .register-page .btn.primary {
   background: var(--green-mid);
   color: white;
