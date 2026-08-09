@@ -40,11 +40,6 @@ export default function Register() {
               </label>
             </div>
 
-            <label className="terms">
-              <input type="checkbox" />
-              <span>Acepto los términos y condiciones de uso de EcoCampus</span>
-            </label>
-
             <button className="btn primary" type="submit">Crear cuenta</button>
 
             <p className="footer-link">¿Ya tienes cuenta?  <Link to="/login">Inicia sesión</Link></p>

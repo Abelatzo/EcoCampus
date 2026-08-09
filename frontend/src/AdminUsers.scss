@@ -153,7 +153,7 @@ html,body,#root{height:100%}
 
 /* Responsive tweaks */
 @media (max-width:900px){
-  .topbar{flex-wrap:wrap; justify-content:center; padding:10px}
-  .topbar .nav{justify-content:center; gap:14px; width:100%;}
-  .btn.new-user{margin-left:0}
+  .users-app .topbar{flex-direction:column; height:auto; align-items:center; gap:8px; padding:10px 14px}
+  .users-app .topbar .nav{flex:0 0 auto; width:100%; justify-content:center; flex-wrap:wrap; gap:12px}
+  .users-app .topbar .right{flex:0 0 auto}
 }
