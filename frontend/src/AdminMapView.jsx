@@ -2,11 +2,115 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import campusMap from './assets/ImagenMapa.jpeg'
 import { useDraggableBackground } from './useDraggableBackground'
+import { useReports } from './reportsStore'
 import './AdminMapView.scss'
 
+const reportStates = [
+  { label: 'Pendiente', type: 'pending' },
+  { label: 'En proceso', type: 'in-progress' },
+  { label: 'Disponible', type: 'resolved' },
+  { label: 'Dañado', type: 'damaged' },
+]
+
+const statusDotClass = { pending: 'orange', 'in-progress': 'blue', resolved: 'green', damaged: 'red' }
+const MAX_ACTIVE_REPORTS = 6
+
+const buildingLetters = [
+  'A', 'B', 'C', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'Q',
+]
+
+const pointStates = [
+  { label: 'Disponible', type: 'resolved' },
+  { label: 'Pendiente', type: 'pending' },
+  { label: 'En proceso', type: 'in-progress' },
+  { label: 'Dañado', type: 'damaged' },
+]
+
+const initialPoints = [
+  { id: 1, name: 'Bote malla C3', building: 'C', status: 'Disponible', statusType: 'resolved' },
+]
+
 export default function AdminMapView() {
-  const [editing, setEditing] = useState(true)
+  const { reports } = useReports()
   const { position, onPointerDown, onPointerMove, onPointerUp } = useDraggableBackground()
+  const [statusDraft, setStatusDraft] = useState([])
+  const [statusFilter, setStatusFilter] = useState([])
+
+  const [points, setPoints] = useState(initialPoints)
+
+  const [editing, setEditing] = useState(false)
+  const [selectedPointId, setSelectedPointId] = useState(null)
+  const [editName, setEditName] = useState('')
+  const [editBuilding, setEditBuilding] = useState('')
+  const [editStatus, setEditStatus] = useState('resolved')
+
+  const [showAddPoint, setShowAddPoint] = useState(false)
+  const [newPointName, setNewPointName] = useState('')
+  const [newPointBuilding, setNewPointBuilding] = useState(buildingLetters[0])
+  const [newPointStatus, setNewPointStatus] = useState('resolved')
+
+  const [showDeletePoints, setShowDeletePoints] = useState(false)
+  const [pointToDelete, setPointToDelete] = useState(null)
+
+  const toggleStatus = (type) => {
+    setStatusDraft((prev) => (prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]))
+  }
+
+  const activeReports = reports.filter((r) => r.statusType !== 'resolved')
+  const filteredReports = (statusFilter.length === 0
+    ? activeReports
+    : activeReports.filter((r) => statusFilter.includes(r.statusType))
+  ).slice(0, MAX_ACTIVE_REPORTS)
+
+  const selectPointToEdit = (point) => {
+    setSelectedPointId(point.id)
+    setEditName(point.name)
+    setEditBuilding(point.building)
+    setEditStatus(point.statusType)
+  }
+
+  const openEditPoints = () => {
+    if (points.length === 0) return
+    selectPointToEdit(points[0])
+    setEditing(true)
+  }
+
+  const saveEditedPoint = () => {
+    const state = pointStates.find((s) => s.type === editStatus)
+    setPoints((prev) => prev.map((p) => (
+      p.id === selectedPointId ? { ...p, name: editName, building: editBuilding, status: state.label, statusType: state.type } : p
+    )))
+    setEditing(false)
+  }
+
+  const resetAddPointForm = () => {
+    setNewPointName('')
+    setNewPointBuilding(buildingLetters[0])
+    setNewPointStatus('resolved')
+  }
+
+  const closeAddPoint = () => {
+    setShowAddPoint(false)
+    resetAddPointForm()
+  }
+
+  const createPoint = () => {
+    if (!newPointName.trim()) return
+    const state = pointStates.find((s) => s.type === newPointStatus)
+    setPoints((prev) => [...prev, {
+      id: Date.now(),
+      name: newPointName.trim(),
+      building: newPointBuilding,
+      status: state.label,
+      statusType: state.type,
+    }])
+    closeAddPoint()
+  }
+
+  const confirmDeletePoint = () => {
+    setPoints((prev) => prev.filter((p) => p.id !== pointToDelete.id))
+    setPointToDelete(null)
+  }
 
   return (
     <div className="map-app admin">
@@ -33,27 +137,21 @@ export default function AdminMapView() {
           <h3>Filtros</h3>
 
           <div className="filter-group">
-            <div className="filter-title">Tipo de punto</div>
-            <label className="checkbox"><input type="checkbox" defaultChecked /> Todos</label>
-            <label className="checkbox"><input type="checkbox" /> Botes malla (PET)</label>
-            <label className="checkbox"><input type="checkbox" /> Contenedor externo</label>
-            <label className="checkbox"><input type="checkbox" /> Punto de reciclaje</label>
-          </div>
-
-          <div className="filter-group">
             <div className="filter-title">Estado del reporte</div>
-            <label className="checkbox"><input type="checkbox" /> Pendiente</label>
-            <label className="checkbox"><input type="checkbox" /> En proceso</label>
-            <label className="checkbox"><input type="checkbox" /> Resuelto</label>
+            {reportStates.map((s) => (
+              <label key={s.type} className="checkbox">
+                <input type="checkbox" checked={statusDraft.includes(s.type)} onChange={() => toggleStatus(s.type)} /> {s.label}
+              </label>
+            ))}
           </div>
 
-          <button className="btn apply">Aplicar filtros</button>
+          <button className="btn apply" onClick={() => setStatusFilter(statusDraft)}>Aplicar filtros</button>
 
           <div className="admin-tools">
             <div className="admin-tools-title">⚙ Herramientas Admin</div>
-            <button className="btn tool edit">✎ Editar punto ecológico</button>
-            <button className="btn tool add">+ Agregar nuevo punto</button>
-            <button className="btn tool delete">🗑 Eliminar punto</button>
+            <button className="btn tool edit" onClick={openEditPoints}>✎ Editar punto ecológico</button>
+            <button className="btn tool add" onClick={() => setShowAddPoint(true)}>+ Agregar nuevo punto</button>
+            <button className="btn tool delete" onClick={() => setShowDeletePoints(true)}>🗑 Eliminar punto</button>
           </div>
         </aside>
 
@@ -74,25 +172,46 @@ export default function AdminMapView() {
 
             {editing && (
               <div className="popup edit" style={{left:'55%', top:'27%'}}>
-                <div className="popup-title edit-title">✎ Editar punto · Edif. C</div>
+                <div className="popup-title edit-title">✎ Editar punto ecológico</div>
+
+                {points.length > 1 && (
+                  <label className="form-field">
+                    <span>Punto:</span>
+                    <select
+                      value={selectedPointId ?? ''}
+                      onChange={(e) => {
+                        const point = points.find((p) => p.id === Number(e.target.value))
+                        if (point) selectPointToEdit(point)
+                      }}
+                    >
+                      {points.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name} · Edif. {p.building}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
 
                 <label className="form-field">
                   <span>Nombre:</span>
-                  <input type="text" placeholder="Bote malla C3" />
+                  <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} />
+                </label>
+
+                <label className="form-field">
+                  <span>Edificio:</span>
+                  <select value={editBuilding} onChange={(e) => setEditBuilding(e.target.value)}>
+                    {buildingLetters.map((b) => <option key={b} value={b}>{b}</option>)}
+                  </select>
                 </label>
 
                 <label className="form-field">
                   <span>Estado:</span>
-                  <select defaultValue="Disponible">
-                    <option>Disponible</option>
-                    <option>Pendiente/Lleno</option>
-                    <option>En proceso</option>
-                    <option>Dañado</option>
+                  <select value={editStatus} onChange={(e) => setEditStatus(e.target.value)}>
+                    {pointStates.map((s) => <option key={s.type} value={s.type}>{s.label}</option>)}
                   </select>
                 </label>
 
                 <div className="popup-actions">
-                  <button className="btn small" onClick={() => setEditing(false)}>Guardar</button>
+                  <button className="btn small" onClick={saveEditedPoint}>Guardar</button>
                   <button className="btn small outline" onClick={() => setEditing(false)}>Cancelar</button>
                 </div>
               </div>
@@ -104,48 +223,129 @@ export default function AdminMapView() {
             <div className="legend">
               <span>Leyenda:</span>
               <span className="dot green" /> Disponible
-              <span className="dot orange" /> Pendiente/Lleno
+              <span className="dot orange" /> Pendiente
               <span className="dot blue" /> En proceso
               <span className="dot red" /> Dañado
             </div>
-            <div className="stats">Total 18 puntos &nbsp;|&nbsp; Activos: 15 &nbsp;|&nbsp; Con incidencia: 3 &nbsp;|&nbsp; Reportes abiertos: 4</div>
+            <div className="stats">Activos: 15 &nbsp;|&nbsp; Reportes abiertos: {activeReports.length}</div>
           </div>
         </main>
 
         <aside className="sidebar right">
-          <h4>Puntos cercanos</h4>
+          <h4>Reportes activos</h4>
           <ul className="near-list">
-            <li className="status-green">
-              <div className="text">
-                <div className="title">Bote A1 · Edif. A</div>
-                <div className="status">Disponible</div>
-                <a href="#" className="edit-link">✎ Editar</a>
-              </div>
-            </li>
-            <li className="status-orange">
-              <div className="text">
-                <div className="title">Bote C3 · Edif. C</div>
-                <div className="status">Lleno</div>
-                <a href="#" className="edit-link">✎ Editar</a>
-              </div>
-            </li>
-            <li className="status-green">
-              <div className="text">
-                <div className="title">Contenedor · Acc.</div>
-                <div className="status">Disponible</div>
-                <a href="#" className="edit-link">✎ Editar</a>
-              </div>
-            </li>
-            <li className="status-red">
-              <div className="text">
-                <div className="title">Bote D1 · Edif. D</div>
-                <div className="status">Dañado</div>
-                <a href="#" className="edit-link">✎ Editar</a>
-              </div>
-            </li>
+            {filteredReports.map((r) => (
+              <li key={r.id} className={`status-${statusDotClass[r.statusType]}`}>
+                <div className="text">
+                  <div className="title">{r.title} · Edif. {r.building}</div>
+                  <div className="status">{r.status}</div>
+                </div>
+              </li>
+            ))}
+            {filteredReports.length === 0 && <li className="empty">Sin reportes con ese estado.</li>}
           </ul>
         </aside>
       </div>
+
+      {showAddPoint && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h3>Agregar nuevo punto</h3>
+              <button className="modal-close" onClick={closeAddPoint}>✕</button>
+            </div>
+
+            <div className="modal-body">
+              <label className="modal-field">
+                <span>Edificio</span>
+                <div className="type-toggle">
+                  {buildingLetters.map((b) => (
+                    <button
+                      key={b}
+                      className={`type-btn ${newPointBuilding === b ? 'active' : ''}`}
+                      onClick={() => setNewPointBuilding(b)}
+                    >
+                      {b}
+                    </button>
+                  ))}
+                </div>
+              </label>
+
+              <label className="modal-field">
+                <span>Nombre del punto</span>
+                <input type="text" placeholder="Ej. Bote malla D2" value={newPointName} onChange={(e) => setNewPointName(e.target.value)} />
+              </label>
+
+              <label className="modal-field">
+                <span>Estado inicial</span>
+                <div className="type-toggle">
+                  {pointStates.map((s) => (
+                    <button
+                      key={s.type}
+                      className={`type-btn ${newPointStatus === s.type ? 'active' : ''}`}
+                      onClick={() => setNewPointStatus(s.type)}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </label>
+            </div>
+
+            <div className="modal-actions">
+              <button className="btn outline" onClick={closeAddPoint}>Cancelar</button>
+              <button className="btn primary" onClick={createPoint}>Agregar punto</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeletePoints && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h3>Eliminar punto</h3>
+              <button className="modal-close" onClick={() => setShowDeletePoints(false)}>✕</button>
+            </div>
+
+            <div className="modal-body">
+              {points.length === 0 && <p className="no-results">No hay puntos ecológicos registrados.</p>}
+              {points.map((p) => (
+                <div key={p.id} className="point-row">
+                  <span>{p.name} · Edif. {p.building}</span>
+                  <button className="btn danger" onClick={() => setPointToDelete(p)}>🗑 Eliminar</button>
+                </div>
+              ))}
+            </div>
+
+            <div className="modal-actions">
+              <button className="btn outline" onClick={() => setShowDeletePoints(false)}>Cerrar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pointToDelete && (
+        <div className="modal-overlay">
+          <div className="modal confirm-modal">
+            <div className="modal-header">
+              <h3>Eliminar punto ecológico</h3>
+              <button className="modal-close" onClick={() => setPointToDelete(null)}>✕</button>
+            </div>
+
+            <div className="modal-body">
+              <p className="confirm-text">
+                ¿Seguro que quieres eliminar el punto <strong>"{pointToDelete.name}"</strong>? Esta acción no se puede deshacer.
+              </p>
+            </div>
+
+            <div className="modal-actions">
+              <button className="btn outline" onClick={() => setPointToDelete(null)}>Cancelar</button>
+              <button className="btn danger" onClick={confirmDeletePoint}>Sí, eliminar</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

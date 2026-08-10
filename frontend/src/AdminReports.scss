@@ -20,6 +20,9 @@
 .reports-app.admin .topbar .nav{gap:18px}
 .topbar .admin-avatar{background:#f5a623}
 
+.select-report{display:flex; align-items:flex-start; padding:8px 0 0 6px; flex-shrink:0}
+.select-report input{width:12px; height:12px}
+
 .reports-app.admin .card-content{padding:5px; gap:5px}
 .reports-app.admin .card-info{gap:1px}
 
@@ -48,10 +51,15 @@
 .state-btn.pending.active{background:rgba(245,166,35,0.12); border-color:var(--pill-pending); color:var(--pill-pending)}
 .state-btn.in-progress.active{background:rgba(42,133,255,0.12); border-color:var(--pill-progress); color:var(--pill-progress)}
 .state-btn.resolved.active{background:rgba(61,139,61,0.12); border-color:var(--pill-resolved); color:var(--pill-resolved)}
+.state-btn.damaged.active{background:rgba(217,54,46,0.12); border-color:var(--pill-damaged); color:var(--pill-damaged)}
 
 .reports-app.admin .description{display:none}
 
 .btn.danger{background:var(--red); color:#fff; padding:3px 8px; font-size:8px; white-space:nowrap; flex-shrink:0}
+.modal-actions .btn.danger{padding:8px 18px; border-radius:6px; font-weight:700; font-size:10.5px; cursor:pointer; border:none}
+
+.confirm-modal{width:360px}
+.confirm-text{margin:0; font-size:11px; color:#444; line-height:1.6}
 
 .reports-app.admin .card-media{align-items:center}
 
