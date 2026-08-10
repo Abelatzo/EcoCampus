@@ -64,6 +64,7 @@
 .near-list li.status-orange .status{color:var(--orange)}
 .near-list li.status-blue{border-left-color:var(--blue)}
 .near-list li.status-blue .status{color:var(--blue)}
+.near-list li.empty{color:var(--muted); font-size:11px; text-align:center; box-shadow:none; border-left:none; background:transparent}
 
 .map-area{flex:1; display:flex; flex-direction:column; background:var(--bg-light);}
 .map-search{padding:10px 16px}
@@ -88,6 +89,7 @@
 .legend .dot.green{background:var(--green)}
 .legend .dot.orange{background:var(--orange)}
 .legend .dot.blue{background:var(--blue)}
+.legend .dot.red{background:var(--red)}
 
 .stats{font-size:11px; color:#999; white-space:nowrap}
 

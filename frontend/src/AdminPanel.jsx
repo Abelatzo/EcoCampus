@@ -2,10 +2,10 @@ import { Link } from 'react-router-dom'
 import './AdminPanel.scss'
 
 const stats = [
-  { icon: '👥', label: 'Usuarios registrados', value: '124', note: '+8 esta semana', accent: 'green' },
-  { icon: '📋', label: 'Reportes totales', value: '47', note: '12 pendientes', accent: 'orange' },
-  { icon: '✅', label: 'Reportes resueltos', value: '31', note: '65% del total', accent: 'blue' },
-  { icon: '📍', label: 'Puntos ecológicos', value: '18', note: '3 con incidencia', accent: 'red' },
+  { icon: '👥', label: 'Usuarios registrados', value: '124', accent: 'green' },
+  { icon: '📋', label: 'Reportes totales', value: '47', accent: 'orange' },
+  { icon: '✅', label: 'Reportes resueltos', value: '31', accent: 'blue' },
+  { icon: '📍', label: 'Puntos ecológicos', value: '18', accent: 'red' },
 ]
 
 const barChart = [
@@ -80,7 +80,6 @@ export default function AdminPanel() {
               <div className="stat-text">
                 <div className="stat-label">{s.label}</div>
                 <div className="stat-value">{s.value}</div>
-                <div className="stat-note">{s.note}</div>
               </div>
             </div>
           ))}
@@ -107,7 +106,7 @@ export default function AdminPanel() {
           <div className="panel-card">
             <div className="card-header-row">
               <h3>Últimos reportes</h3>
-              <a href="#" className="view-all">Ver todos →</a>
+              <Link to="/admin/reports" className="view-all">Ver todos →</Link>
             </div>
             <ul className="list">
               {lastReports.map((r) => (
@@ -139,7 +138,6 @@ export default function AdminPanel() {
           <div className="panel-card">
             <div className="card-header-row">
               <h3>Eventos publicados</h3>
-              <button className="btn new-event">+ Evento</button>
             </div>
             <ul className="list simple">
               {eventsPublished.map((e) => (
@@ -158,7 +156,7 @@ export default function AdminPanel() {
             <h3>Actividad reciente</h3>
             <ul className="list activity">
               {activity.map((a) => (
-                <li key={a.id} className="list-row">
+                <li key={a.text} className="list-row">
                   <div className="list-text">
                     <div className="list-title">{a.text}</div>
                     <div className="list-sub">{a.time}</div>

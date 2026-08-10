@@ -90,6 +90,13 @@ export default function Login() {
             <Link to="/register" className="btn outline" role="button">¿No tienes cuenta? Regístrate aquí</Link>
           </form>
         </div>
+
+        <div className="credits-footer">
+          <p>© 2026 EcoCampus — Universidad Tecnológica de Ciudad Juárez. Todos los derechos reservados.</p>
+          <p>
+            Diseñado y desarrollado por: Diego Armando Araiza López (UI/UX Design &amp; Frontend) · Julio Rafael Camacho Perea (Base de datos, Backend &amp; Despliegue) · Abel Andrés Barraza Ramírez (Backend &amp; Endpoints) · David Ahjuech Ramos (Integración de APIs)
+          </p>
+        </div>
       </div>
     </div>
   )
