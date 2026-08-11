@@ -11,7 +11,7 @@ const states = [
 ]
 
 const buildings = [
-  'Edificio A', 'Edificio B', 'Edificio C', 'Edificio E', 'Edificio F',
+  'Edificio A', 'Edificio B', 'Edificio C', 'Edificio D', 'Edificio E', 'Edificio F',
   'Edificio G', 'Edificio H', 'Edificio I', 'Edificio J', 'Edificio K',
   'Edificio L', 'Edificio M', 'Edificio N', 'Edificio O', 'Edificio Q',
 ]
