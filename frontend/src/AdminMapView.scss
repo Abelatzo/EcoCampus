@@ -36,7 +36,6 @@
 .btn.tool.add{border:none; background:var(--green); color:#fff}
 .btn.tool.delete{border:1px solid var(--red); color:var(--red); background:#fdecec}
 
-.legend .dot.red{background:var(--red)}
 
 .popup.edit{
   border-top:3px solid #f5a623;
@@ -57,12 +56,6 @@
 
 .near-list li.status-red{border-left-color:var(--red)}
 .near-list li.status-red .status{color:var(--red)}
-.near-list li .edit-link{
-  display:block;
-  margin-top:3px;
-  font-size:10px;
-  color:var(--muted);
-  text-decoration:none;
-}
-.near-list li.status-orange .edit-link{color:var(--orange)}
-.near-list li.status-red .edit-link{color:var(--red)}
+
+.point-row{display:flex; align-items:center; justify-content:space-between; padding:7px 0; border-bottom:1px solid rgba(0,0,0,0.06); font-size:11px}
+.point-row:last-child{border-bottom:none}

@@ -1,10 +1,35 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import campusMap from './assets/ImagenMapa.jpeg'
 import { useDraggableBackground } from './useDraggableBackground'
+import { useReports } from './reportsStore'
 import './MapView.scss'
 
+const reportStates = [
+  { label: 'Pendiente', type: 'pending' },
+  { label: 'En proceso', type: 'in-progress' },
+  { label: 'Disponible', type: 'resolved' },
+  { label: 'Dañado', type: 'damaged' },
+]
+
+const statusDotClass = { pending: 'orange', 'in-progress': 'blue', resolved: 'green', damaged: 'red' }
+const MAX_ACTIVE_REPORTS = 6
+
 export default function MapView() {
+  const { reports } = useReports()
   const { position, onPointerDown, onPointerMove, onPointerUp } = useDraggableBackground()
+  const [statusDraft, setStatusDraft] = useState([])
+  const [statusFilter, setStatusFilter] = useState([])
+
+  const toggleStatus = (type) => {
+    setStatusDraft((prev) => (prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]))
+  }
+
+  const activeReports = reports.filter((r) => r.statusType !== 'resolved')
+  const filteredReports = (statusFilter.length === 0
+    ? activeReports
+    : activeReports.filter((r) => statusFilter.includes(r.statusType))
+  ).slice(0, MAX_ACTIVE_REPORTS)
 
   return (
     <div className="map-app">
@@ -28,21 +53,15 @@ export default function MapView() {
           <h3>Filtros</h3>
 
           <div className="filter-group">
-            <div className="filter-title">Tipo de punto</div>
-            <label className="checkbox"><input type="checkbox" defaultChecked /> Todos</label>
-            <label className="checkbox"><input type="checkbox" /> Botes malla (PET)</label>
-            <label className="checkbox"><input type="checkbox" /> Contenedor externo</label>
-            <label className="checkbox"><input type="checkbox" /> Punto de reciclaje</label>
-          </div>
-
-          <div className="filter-group">
             <div className="filter-title">Estado del reporte</div>
-            <label className="checkbox"><input type="checkbox" /> Pendiente</label>
-            <label className="checkbox"><input type="checkbox" /> En proceso</label>
-            <label className="checkbox"><input type="checkbox" /> Resuelto</label>
+            {reportStates.map((s) => (
+              <label key={s.type} className="checkbox">
+                <input type="checkbox" checked={statusDraft.includes(s.type)} onChange={() => toggleStatus(s.type)} /> {s.label}
+              </label>
+            ))}
           </div>
 
-          <button className="btn apply">Aplicar filtros</button>
+          <button className="btn apply" onClick={() => setStatusFilter(statusDraft)}>Aplicar filtros</button>
         </aside>
 
         <main className="map-area">
@@ -59,17 +78,6 @@ export default function MapView() {
               onPointerUp={onPointerUp}
               onPointerLeave={onPointerUp}
             />
-
-            {/* Example popup */}
-            <div className="popup" style={{left:'55%', top:'27%'}}>
-              <div className="popup-title">Bote malla — Edificio C</div>
-              <div className="popup-body">Estado: Disponible<br/>Último reporte: hace 3h</div>
-              <div className="popup-actions">
-                <button className="btn small">Reportar</button>
-                <button className="btn small outline">Ver reportes</button>
-              </div>
-            </div>
-
           </div>
 
           <div className="bottom-bar">
@@ -78,38 +86,24 @@ export default function MapView() {
               <span className="dot green" /> Disponible
               <span className="dot orange" /> Pendiente
               <span className="dot blue" /> En proceso
+              <span className="dot red" /> Dañado
             </div>
-            <div className="stats">Total de puntos ecológicos: 18 &nbsp;|&nbsp; Reportes activos: 4 &nbsp;|&nbsp; Resueltos hoy: 2</div>
+            <div className="stats">Total de puntos ecológicos: 18 &nbsp;|&nbsp; Reportes activos: {activeReports.length} &nbsp;|&nbsp; Resueltos hoy: 2</div>
           </div>
         </main>
 
         <aside className="sidebar right">
-          <h4>Puntos cercanos</h4>
+          <h4>Reportes activos</h4>
           <ul className="near-list">
-            <li className="status-green">
-              <div className="text">
-                <div className="title">Bote A1 · Edif. A</div>
-                <div className="status">Disponible</div>
-              </div>
-            </li>
-            <li className="status-orange">
-              <div className="text">
-                <div className="title">Bote C3 · Edif. C</div>
-                <div className="status">Lleno</div>
-              </div>
-            </li>
-            <li className="status-green">
-              <div className="text">
-                <div className="title">Contenedor · Acc.</div>
-                <div className="status">Disponible</div>
-              </div>
-            </li>
-            <li className="status-blue">
-              <div className="text">
-                <div className="title">Bote B2 · Edif. B</div>
-                <div className="status">En revisión</div>
-              </div>
-            </li>
+            {filteredReports.map((r) => (
+              <li key={r.id} className={`status-${statusDotClass[r.statusType]}`}>
+                <div className="text">
+                  <div className="title">{r.title} · Edif. {r.building}</div>
+                  <div className="status">{r.status}</div>
+                </div>
+              </li>
+            ))}
+            {filteredReports.length === 0 && <li className="empty">Sin reportes con ese estado.</li>}
           </ul>
         </aside>
       </div>

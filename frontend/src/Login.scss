@@ -11,6 +11,17 @@ body{
   min-height:100vh;
 }
 
+.credits-footer{
+  width:520px;
+  max-width:100%;
+  text-align:center;
+  color:#8aa08a;
+  font-size:9.5px;
+  line-height:1.6;
+  margin-top:16px;
+}
+.credits-footer p{margin:0}
+
 .left-panel{
   width:38%;
   background:var(--green-mid);
@@ -60,6 +71,7 @@ body{
 .right-panel{
   width:62%;
   display:flex;
+  flex-direction:column;
   align-items:center;
   justify-content:center;
   padding:60px 40px;

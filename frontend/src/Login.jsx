@@ -1,7 +1,45 @@
-import { Link } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import './Login.scss'
 
 export default function Login() {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const navigate = useNavigate()
+
+  const handleLogin = async (e) => {
+    e.preventDefault()
+    setError('')
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setError(data.error || 'Credenciales incorrectas')
+        return
+      }
+
+      localStorage.setItem('token', data.token)
+      localStorage.setItem('usuario', JSON.stringify(data.usuario))
+
+      if (data.usuario.rol === 'administrador') {
+        navigate('/admin')
+      } else {
+        navigate('/map')
+      }
+
+    } catch (err) {
+      setError('Error al conectar con el servidor')
+    }
+  }
+
   return (
     <div className="login-page">
       <div className="left-panel">
@@ -18,16 +56,30 @@ export default function Login() {
           <h2>Bienvenido de nuevo</h2>
           <p className="muted">Inicia sesión con tu cuenta institucional</p>
 
-          <form onSubmit={(e) => e.preventDefault()} className="login-form">
+          <form onSubmit={handleLogin} className="login-form">
             <label className="field">
               <span className="label-text">Correo institucional</span>
-              <input type="email" placeholder="usuario@utcj.edu.mx" />
+              <input
+                type="email"
+                placeholder="usuario@utcj.edu.mx"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
             </label>
 
             <label className="field">
               <span className="label-text">Contraseña</span>
-              <input type="password" placeholder="**********" />
+              <input
+                type="password"
+                placeholder="**********"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
             </label>
+
+            {error && <p style={{ color: 'red', fontSize: '14px' }}>{error}</p>}
+
+            {error && <p style={{ color: 'red', fontSize: '14px' }}>{error}</p>}
 
             <Link to="/forgot-password" className="forgot">¿Olvidaste tu contraseña?</Link>
 
@@ -37,6 +89,13 @@ export default function Login() {
 
             <Link to="/register" className="btn outline" role="button">¿No tienes cuenta? Regístrate aquí</Link>
           </form>
+        </div>
+
+        <div className="credits-footer">
+          <p>© 2026 EcoCampus — Universidad Tecnológica de Ciudad Juárez. Todos los derechos reservados.</p>
+          <p>
+            Diseñado y desarrollado por: Diego Armando Araiza López (UI/UX Design &amp; Frontend) · Julio Rafael Camacho Perea (Base de datos, Backend &amp; Despliegue) · Abel Andrés Barraza Ramírez (Backend &amp; Endpoints) · David Ahjuech Ramos (Integración de APIs)
+          </p>
         </div>
       </div>
     </div>
