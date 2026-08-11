@@ -16,7 +16,7 @@ const statusDotClass = { pending: 'orange', 'in-progress': 'blue', resolved: 'gr
 const MAX_ACTIVE_REPORTS = 6
 
 const buildingLetters = [
-  'A', 'B', 'C', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'Q',
+  'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'Q',
 ]
 
 const pointStates = [
