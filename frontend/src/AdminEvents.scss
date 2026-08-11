@@ -84,8 +84,6 @@
 }
 .btn.action.preview{background:#f4f7f0; color:#4f5c4f; border-color:rgba(47,122,47,0.15)}
 .btn.action.edit{background:#fff8ec; color:#c67c0f; border-color:#f5a623}
-.btn.action.publish{background:rgba(61,139,61,0.1); color:var(--green); border-color:var(--green)}
-.btn.action.unpublish{background:rgba(217,54,46,0.08); color:var(--red); border-color:var(--red)}
 .btn.action.delete{background:#fdecec; color:var(--red); border-color:var(--red); padding:4px 8px}
 
 .modal-overlay{
@@ -174,4 +172,10 @@
   font-weight:700;
   font-size:10.5px;
   cursor:pointer;
+}
+
+@media (max-width:700px){
+  .events-app.admin .post-row{flex-direction:column}
+  .events-app.admin .row-side{width:100%; height:4px}
+  .events-app.admin .row-actions{max-width:100%; padding-top:0}
 }

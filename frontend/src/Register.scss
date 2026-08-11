@@ -12,6 +12,19 @@ body {
   min-height: 100vh;
 }
 
+.credits-footer {
+  width: 520px;
+  max-width: 100%;
+  text-align: center;
+  color: #8aa08a;
+  font-size: 9.5px;
+  line-height: 1.6;
+  margin-top: 16px;
+}
+.credits-footer p {
+  margin: 0;
+}
+
 .register-page .left-panel {
   width: 38%;
   background: var(--green-mid);
@@ -60,6 +73,7 @@ body {
 .register-page .right-panel {
   width: 62%;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 60px 40px;
@@ -122,19 +136,6 @@ body {
 .register-page .field input:focus {
   box-shadow: 0 0 0 4px rgba(63, 136, 63, 0.06);
   border-color: var(--accent);
-}
-
-.register-page .terms {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 13px;
-  color: #3a4b3a;
-}
-
-.register-page .terms input {
-  width: 18px;
-  height: 18px;
 }
 
 .register-page .btn.primary {

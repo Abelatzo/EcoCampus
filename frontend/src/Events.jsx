@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import './Events.scss'
 
@@ -48,9 +49,28 @@ const events = [
   },
 ]
 
-const filters = ['Todos', 'Eventos', 'Actualizaciones', 'Información']
+const filterMap = { Todos: null, Eventos: 'event', Actualizaciones: 'update', Información: 'info' }
+const filters = Object.keys(filterMap)
+const PAGE_SIZE = 4
 
 export default function Events() {
+  const [activeFilter, setActiveFilter] = useState('Todos')
+  const [detailEvent, setDetailEvent] = useState(null)
+  const [page, setPage] = useState(1)
+
+  const selectFilter = (f) => {
+    setActiveFilter(f)
+    setPage(1)
+  }
+
+  const filteredEvents = filterMap[activeFilter]
+    ? events.filter((ev) => ev.typeClass === filterMap[activeFilter])
+    : events
+
+  const totalPages = Math.max(1, Math.ceil(filteredEvents.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const pageEvents = filteredEvents.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+
   return (
     <div className="events-app">
       <header className="topbar">
@@ -79,14 +99,15 @@ export default function Events() {
             <input placeholder="Buscar eventos o publicaciones..." />
           </div>
           <div className="filter-pills">
-            {filters.map((f, i) => (
-              <button key={f} className={`filter-pill ${i === 0 ? 'active' : ''}`}>{f}</button>
+            {filters.map((f) => (
+              <button key={f} className={`filter-pill ${activeFilter === f ? 'active' : ''}`} onClick={() => selectFilter(f)}>{f}</button>
             ))}
           </div>
         </div>
 
         <div className="events-grid">
-          {events.map((ev) => (
+          {pageEvents.length === 0 && <p className="no-results">No hay publicaciones de este tipo.</p>}
+          {pageEvents.map((ev) => (
             <article key={ev.title} className={`event-card ${ev.typeClass}`}>
               <div className="card-top-bar" />
               <div className="card-body">
@@ -106,12 +127,59 @@ export default function Events() {
 
                 <p className="description">{ev.description}</p>
 
-                <button className="btn outline">Ver más →</button>
+                <button className="btn outline" onClick={() => setDetailEvent(ev)}>Ver más →</button>
               </div>
             </article>
           ))}
         </div>
+
+        {filteredEvents.length > 0 && (
+          <div className="pagination">
+            <a href="#" className="page-link" onClick={(e) => { e.preventDefault(); setPage((p) => Math.max(1, p - 1)) }}>← Anterior</a>
+            <span className="page-count">Página {currentPage} de {totalPages}</span>
+            <a href="#" className="page-link" onClick={(e) => { e.preventDefault(); setPage((p) => Math.min(totalPages, p + 1)) }}>Siguiente →</a>
+          </div>
+        )}
       </div>
+
+      {detailEvent && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h3>{detailEvent.title}</h3>
+              <button className="modal-close" onClick={() => setDetailEvent(null)}>✕</button>
+            </div>
+
+            <div className="modal-body">
+              <div className="modal-field row">
+                <span className={`tag ${detailEvent.typeClass}`}>{detailEvent.type}</span>
+                <span className={`tag ${detailEvent.statusClass}`}>{detailEvent.status}</span>
+              </div>
+
+              <div className="modal-field">
+                <span>Fecha</span>
+                <p className="detail-text">📅 {detailEvent.date}</p>
+              </div>
+
+              {detailEvent.location && (
+                <div className="modal-field">
+                  <span>Ubicación</span>
+                  <p className="detail-text">📍 {detailEvent.location}</p>
+                </div>
+              )}
+
+              <div className="modal-field">
+                <span>Descripción</span>
+                <p className="detail-text">{detailEvent.description}</p>
+              </div>
+            </div>
+
+            <div className="modal-actions">
+              <button className="btn primary" onClick={() => setDetailEvent(null)}>Cerrar</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
