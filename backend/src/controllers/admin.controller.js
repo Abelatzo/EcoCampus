@@ -1,12 +1,11 @@
 import { supabase } from '../config/supabase.js'
 
-// GET /api/admin/estadisticas — resumen general del panel
 export const estadisticas = async (req, res) => {
   const { desde, hasta } = req.query
 
   let query = supabase
     .from('reportes')
-    .select('id, estatus, created_at, updated_at, bote_malla_id, bote_mallas(edificio)')
+    .select('id, estatus, created_at, updated_at, edificios(letra)')
 
   if (desde) query = query.gte('created_at', desde)
   if (hasta) query = query.lte('created_at', hasta)
@@ -18,8 +17,8 @@ export const estadisticas = async (req, res) => {
   const pendientes = data.filter(r => r.estatus === 'pendiente').length
   const en_proceso = data.filter(r => r.estatus === 'en_proceso').length
   const resueltos = data.filter(r => r.estatus === 'resuelto').length
+  const dañados = data.filter(r => r.estatus === 'dañado').length
 
-  // Tiempo promedio de atención en minutos (solo reportes resueltos)
   const resueltosList = data.filter(r => r.estatus === 'resuelto')
   const tiempoPromedio = resueltosList.length > 0
     ? Math.round(
@@ -31,10 +30,9 @@ export const estadisticas = async (req, res) => {
       )
     : null
 
-  // Reportes agrupados por edificio
   const porZona = data.reduce((acc, r) => {
-    const edificio = r.bote_mallas?.edificio || 'Desconocido'
-    acc[edificio] = (acc[edificio] || 0) + 1
+    const letra = r.edificios?.letra || 'Desconocido'
+    acc[letra] = (acc[letra] || 0) + 1
     return acc
   }, {})
 
@@ -43,27 +41,38 @@ export const estadisticas = async (req, res) => {
     pendientes,
     en_proceso,
     resueltos,
+    dañados,
     tiempo_promedio_atencion_min: tiempoPromedio,
     por_zona: porZona
   })
 }
 
-// GET /api/admin/reportes — historial completo con filtros
 export const reportesAdmin = async (req, res) => {
-  const { desde, hasta, estatus, bote_malla_id, usuario_id } = req.query
+  const { desde, hasta, estatus, edificio, usuario_id } = req.query
+
+  let edificio_id = null
+  if (edificio) {
+    const { data: ed } = await supabase
+      .from('edificios')
+      .select('id')
+      .eq('letra', edificio.toUpperCase())
+      .single()
+    if (!ed) return res.status(400).json({ error: `Edificio '${edificio}' no válido` })
+    edificio_id = ed.id
+  }
 
   let query = supabase
     .from('reportes')
     .select(`
       id,
-      estatus,
-      comentario,
+      titulo,
+      ubicacion,
+      descripcion,
       foto_url,
+      estatus,
       created_at,
       updated_at,
-      bote_malla_id,
-      usuario_id,
-      bote_mallas (edificio, ubicacion),
+      edificios (letra),
       usuarios (nombre, email)
     `)
     .order('created_at', { ascending: false })
@@ -71,7 +80,7 @@ export const reportesAdmin = async (req, res) => {
   if (desde) query = query.gte('created_at', desde)
   if (hasta) query = query.lte('created_at', hasta)
   if (estatus) query = query.eq('estatus', estatus)
-  if (bote_malla_id) query = query.eq('bote_malla_id', bote_malla_id)
+  if (edificio_id) query = query.eq('edificio_id', edificio_id)
   if (usuario_id) query = query.eq('usuario_id', usuario_id)
 
   const { data, error } = await query
@@ -79,32 +88,20 @@ export const reportesAdmin = async (req, res) => {
   res.json(data)
 }
 
-// GET /api/admin/bote-mallas — listado completo con conteo de reportes
 export const boteMallasAdmin = async (req, res) => {
   const { data, error } = await supabase
     .from('bote_mallas')
     .select(`
       id,
-      edificio,
-      ubicacion,
+      nombre,
       latitud,
       longitud,
+      tipo,
       estatus,
-      created_at,
-      reportes (id, estatus)
+      edificios (letra)
     `)
-    .order('edificio')
+    .order('created_at')
 
   if (error) return res.status(500).json({ error: error.message })
-
-  const resultado = data.map(bm => ({
-    ...bm,
-    total_reportes: bm.reportes.length,
-    reportes_activos: bm.reportes.filter(r =>
-      r.estatus === 'pendiente' || r.estatus === 'en_proceso'
-    ).length,
-    reportes: undefined
-  }))
-
-  res.json(resultado)
+  res.json(data)
 }
