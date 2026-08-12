@@ -6,24 +6,19 @@ import {
   estadoMapa,
   crearReporte,
   actualizarEstatus,
+  editarReporte,
+  eliminarReporte,
   historial
 } from '../controllers/reportes.controller.js'
 
 const router = Router()
 
-// Ruta de polling para el mapa — cualquier autenticado
 router.get('/mapa', verificarAuth, estadoMapa)
-
-// Reportes activos — personal y admin
 router.get('/', verificarAuth, obtenerActivos)
-
-// Crear reporte — cualquier autenticado
 router.post('/', verificarAuth, crearReporte)
-
-// Cambiar estatus — autenticado (la lógica interna controla quién puede qué)
 router.patch('/:id/estatus', verificarAuth, actualizarEstatus)
-
-// Historial — solo admin
+router.patch('/:id', verificarAuth, editarReporte)
+router.delete('/:id', verificarAuth, soloAdmin, eliminarReporte)
 router.get('/historial', verificarAuth, soloAdmin, historial)
 
 export default router

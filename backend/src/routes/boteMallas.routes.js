@@ -6,7 +6,8 @@ import {
   obtenerUno,
   crear,
   actualizar,
-  desactivar
+  desactivar,
+  eliminar
 } from '../controllers/boteMallas.controller.js'
 
 const router = Router()
@@ -16,5 +17,6 @@ router.get('/:id', verificarAuth, obtenerUno)
 router.post('/', verificarAuth, soloAdmin, crear)
 router.put('/:id', verificarAuth, soloAdmin, actualizar)
 router.patch('/:id/estatus', verificarAuth, soloAdmin, desactivar)
+router.delete('/:id', verificarAuth, soloAdmin, eliminar)
 
 export default router

@@ -7,6 +7,7 @@ import reportesRoutes from './routes/reportes.routes.js'
 import adminRoutes from './routes/admin.routes.js'
 import usuariosRoutes from './routes/usuarios.routes.js'
 import eventosRoutes from './routes/eventos.routes.js'
+import edificiosRoutes from './routes/edificios.routes.js'
 
 dotenv.config()
 
@@ -22,6 +23,7 @@ app.use('/api/reportes', reportesRoutes)
 app.use('/api/admin', adminRoutes)
 app.use('/api/usuarios', usuariosRoutes)
 app.use('/api/eventos', eventosRoutes)
+app.use('/api/edificios', edificiosRoutes)
 
 app.get('/', (req, res) => {
   res.json({ message: 'EcoCampus API corriendo' })
