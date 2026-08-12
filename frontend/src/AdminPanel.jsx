@@ -175,7 +175,7 @@ export default function AdminPanel() {
                 const s = estatusPointMap[p.estatus] || { label: p.estatus, statusClass: 'available' }
                 return (
                   <li key={p.id} className={`list-row ${s.statusClass}`}>
-                    <div className="list-title">{p.edificio} · {p.ubicacion}</div>
+                    <div className="list-title">{p.edificios?.letra} · {p.nombre}</div>
                     <span className={`pill ${s.statusClass}`}>{s.label}</span>
                   </li>
                 )
