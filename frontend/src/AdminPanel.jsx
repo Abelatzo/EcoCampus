@@ -77,7 +77,7 @@ export default function AdminPanel() {
 
   // Actividad reciente simulada con últimos reportes
   const activityReciente = lastReports.map(r => ({
-    text: `Nuevo reporte · ${r.titulo || r.comentario || 'Sin título'} · Edif. ${r.bote_mallas?.edificio || '?'}`,
+    text: `Nuevo reporte · ${r.titulo || r.comentario || 'Sin título'} · Edif. ${r.edificios?.letra || '?'}`,
     time: new Date(r.created_at).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })
   }))
 
@@ -156,7 +156,7 @@ export default function AdminPanel() {
                   <li key={r.id} className={`list-row ${s.statusClass}`}>
                     <div className="list-text">
                       <div className="list-title">{r.titulo || r.comentario || 'Sin título'}</div>
-                      <div className="list-sub">Edif. {r.bote_mallas?.edificio || '?'}</div>
+                      <div className="list-sub">Edif. {r.edificios?.letra || '?'}</div>
                     </div>
                     <span className={`pill ${s.statusClass}`}>{s.label}</span>
                   </li>
