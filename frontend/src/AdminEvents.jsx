@@ -82,6 +82,7 @@ export default function AdminEvents() {
   const [activeFilter, setActiveFilter] = useState('Todos')
   const [page, setPage] = useState(1)
 
+  const [searchQuery, setSearchQuery] = useState('')
   const [detailPost, setDetailPost] = useState(null)
   const [editPost, setEditPost] = useState(null)
   const [editTitle, setEditTitle] = useState('')
@@ -118,9 +119,20 @@ export default function AdminEvents() {
     setPage(1)
   }
 
-  const filteredPosts = filterMap[activeFilter]
+  let filteredPosts = filterMap[activeFilter]
     ? postList.filter((p) => p.typeClass === filterMap[activeFilter])
     : postList
+
+  if (searchQuery.trim()) {
+    const q = searchQuery.trim().toLowerCase()
+    filteredPosts = filteredPosts.filter((p) =>
+      p.title.toLowerCase().includes(q) ||
+      (p.description && p.description.toLowerCase().includes(q)) ||
+      (p.location && p.location.toLowerCase().includes(q)) ||
+      (p.date && p.date.toLowerCase().includes(q)) ||
+      (p.type && p.type.toLowerCase().includes(q))
+    )
+  }
 
   const totalPages = Math.max(1, Math.ceil(filteredPosts.length / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)
@@ -260,7 +272,11 @@ export default function AdminEvents() {
 
         <div className="toolbar">
           <div className="search-bar">
-            <input placeholder="Buscar publicaciones..." />
+            <input
+              placeholder="Buscar publicaciones..."
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setPage(1) }}
+            />
           </div>
           <div className="filter-pills">
             {filters.map((f) => (
