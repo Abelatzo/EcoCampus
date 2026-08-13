@@ -68,6 +68,13 @@ export const crearEvento = async (req, res) => {
   if (!tipo || !titulo) {
     return res.status(400).json({ error: 'tipo y titulo son requeridos' })
   }
+  let fechaParsed = null
+if (fecha_evento) {
+  fechaParsed = new Date(fecha_evento)
+  if (isNaN(fechaParsed)) {
+    return res.status(400).json({ error: 'fecha_evento inválida, usa formato ISO: 2026-06-28T10:00:00Z' })
+  }
+}
 
   if (!['evento', 'actualizacion', 'informacion'].includes(tipo)) {
     return res.status(400).json({ error: 'tipo debe ser evento, actualizacion o informacion' })
@@ -79,7 +86,7 @@ export const crearEvento = async (req, res) => {
       tipo,
       titulo,
       descripcion: descripcion || null,
-      fecha_evento: fecha_evento || null,
+      fecha_evento: fechaParsed,
       lugar: lugar || null,
       publicado: publicado !== undefined ? publicado : true,
       autor_id: req.user.id
@@ -105,7 +112,17 @@ export const editarEvento = async (req, res) => {
   }
   if (titulo) campos.titulo = titulo
   if (descripcion !== undefined) campos.descripcion = descripcion
-  if (fecha_evento !== undefined) campos.fecha_evento = fecha_evento
+  if (fecha_evento !== undefined) {
+  if (fecha_evento === null) {
+    campos.fecha_evento = null
+  } else {
+    const parsed = new Date(fecha_evento)
+    if (isNaN(parsed)) {
+      return res.status(400).json({ error: 'fecha_evento inválida, usa formato ISO: 2026-06-28T10:00:00Z' })
+    }
+    campos.fecha_evento = parsed
+  }
+}
   if (lugar !== undefined) campos.lugar = lugar
   if (publicado !== undefined) campos.publicado = publicado
 
