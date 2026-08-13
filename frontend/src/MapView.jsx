@@ -1,0 +1,112 @@
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import campusMap from './assets/ImagenMapa.jpeg'
+import { useDraggableBackground } from './useDraggableBackground'
+import { useReports } from './reportsStore'
+import './MapView.scss'
+
+const reportStates = [
+  { label: 'Pendiente', type: 'pending' },
+  { label: 'En proceso', type: 'in-progress' },
+  { label: 'Disponible', type: 'resolved' },
+  { label: 'Dañado', type: 'damaged' },
+]
+
+const statusDotClass = { pending: 'orange', 'in-progress': 'blue', resolved: 'green', damaged: 'red' }
+const MAX_ACTIVE_REPORTS = 6
+
+export default function MapView() {
+  const { reports } = useReports()
+  const { position, onPointerDown, onPointerMove, onPointerUp } = useDraggableBackground()
+  const [statusDraft, setStatusDraft] = useState([])
+  const [statusFilter, setStatusFilter] = useState([])
+
+  const toggleStatus = (type) => {
+    setStatusDraft((prev) => (prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]))
+  }
+
+  const activeReports = reports.filter((r) => r.statusType !== 'resolved')
+  const filteredReports = (statusFilter.length === 0
+    ? activeReports
+    : activeReports.filter((r) => statusFilter.includes(r.statusType))
+  ).slice(0, MAX_ACTIVE_REPORTS)
+
+  return (
+    <div className="map-app">
+      <header className="topbar">
+        <div className="left">
+          <div className="logo">🌿 <span>EcoCampus</span></div>
+        </div>
+        <nav className="nav">
+          <Link to="/map" className="nav-item active">Mapa</Link>
+          <Link to="/reports" className="nav-item">Reportes</Link>
+          <Link to="/events" className="nav-item">Eventos</Link>
+        </nav>
+        <div className="right">
+          <div className="username">Diego A.</div>
+          <div className="avatar" aria-hidden="true" />
+        </div>
+      </header>
+
+      <div className="container">
+        <aside className="sidebar left">
+          <h3>Filtros</h3>
+
+          <div className="filter-group">
+            <div className="filter-title">Estado del reporte</div>
+            {reportStates.map((s) => (
+              <label key={s.type} className="checkbox">
+                <input type="checkbox" checked={statusDraft.includes(s.type)} onChange={() => toggleStatus(s.type)} /> {s.label}
+              </label>
+            ))}
+          </div>
+
+          <button className="btn apply" onClick={() => setStatusFilter(statusDraft)}>Aplicar filtros</button>
+        </aside>
+
+        <main className="map-area">
+          <div className="map-search">
+            <input placeholder="Buscar edificio o punto..." />
+          </div>
+
+          <div className="map-canvas" role="img" aria-label="Mapa interactivo del campus">
+            <div
+              className="map-bg"
+              style={{ backgroundImage: `url(${campusMap})`, backgroundPosition: `${position.x}% ${position.y}%` }}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onPointerLeave={onPointerUp}
+            />
+          </div>
+
+          <div className="bottom-bar">
+            <div className="legend">
+              <span>Leyenda:</span>
+              <span className="dot green" /> Disponible
+              <span className="dot orange" /> Pendiente
+              <span className="dot blue" /> En proceso
+              <span className="dot red" /> Dañado
+            </div>
+            <div className="stats">Total de puntos ecológicos: 18 &nbsp;|&nbsp; Reportes activos: {activeReports.length} &nbsp;|&nbsp; Resueltos hoy: 2</div>
+          </div>
+        </main>
+
+        <aside className="sidebar right">
+          <h4>Reportes activos</h4>
+          <ul className="near-list">
+            {filteredReports.map((r) => (
+              <li key={r.id} className={`status-${statusDotClass[r.statusType]}`}>
+                <div className="text">
+                  <div className="title">{r.title} · Edif. {r.building}</div>
+                  <div className="status">{r.status}</div>
+                </div>
+              </li>
+            ))}
+            {filteredReports.length === 0 && <li className="empty">Sin reportes con ese estado.</li>}
+          </ul>
+        </aside>
+      </div>
+    </div>
+  )
+}
