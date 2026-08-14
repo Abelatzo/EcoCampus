@@ -81,10 +81,13 @@ export const editarUsuario = async (req, res) => {
   if (nombre) campos.nombre = nombre
   if (email) campos.email = email
 
-  const { error } = await supabase
+
+  const { data: updateData, error } = await supabase
     .from('usuarios')
     .update(campos)
     .eq('id', id)
+    .select()
+
 
   if (error) return res.status(500).json({ error: error.message })
 
