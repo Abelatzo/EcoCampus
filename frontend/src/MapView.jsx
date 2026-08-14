@@ -19,14 +19,14 @@ const POLL_MS = 15000
 
 export default function MapView() {
   const navigate = useNavigate()
-  const usuario = JSON.parse(localStorage.getItem('usuario') || 'null')
+  const usuario = JSON.parse(sessionStorage.getItem('usuario') || 'null')
   const { reports } = useReports()
   const { offset, containerRef, imageRef, onPointerDown, onPointerMove, onPointerUp } = useDraggableMap()
   const [statusDraft, setStatusDraft] = useState([])
   const [statusFilter, setStatusFilter] = useState([])
   const [edificios, setEdificios] = useState([])
 
-  const token = localStorage.getItem('token')
+  const token = sessionStorage.getItem('token')
   const API = import.meta.env.VITE_API_URL
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
 

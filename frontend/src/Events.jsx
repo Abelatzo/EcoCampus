@@ -33,6 +33,7 @@ function mapEvento(e) {
 }
 
 export default function Events() {
+  const usuario = JSON.parse(sessionStorage.getItem('usuario') || 'null')
   const navigate = useNavigate()
   const token = localStorage.getItem('token')
   const API = import.meta.env.VITE_API_URL
@@ -109,7 +110,7 @@ export default function Events() {
           <Link to="/events" className="nav-item active">Eventos</Link>
         </nav>
         <div className="right">
-          <div className="username">Diego A.</div>
+          <div className="username">{usuario?.nombre || 'Usuario'}</div>
           <div className="avatar" aria-hidden="true" />
         </div>
       </header>

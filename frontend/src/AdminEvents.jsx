@@ -59,6 +59,8 @@ function toDatetimeLocal(isoValue) {
 }
 
 export default function AdminEvents() {
+  const usuario = JSON.parse(sessionStorage.getItem('usuario') || 'null')
+  const [postList, setPostList] = useState(initialPosts)
   const navigate = useNavigate()
   const token = localStorage.getItem('token')
   const API = import.meta.env.VITE_API_URL
@@ -257,7 +259,7 @@ export default function AdminEvents() {
           <Link to="/admin/panel" className="nav-item">Panel</Link>
         </nav>
         <div className="right">
-          <div className="username">Admin</div>
+          <div className="username">{usuario?.nombre || 'Admin'}</div>
           <div className="avatar admin-avatar" aria-hidden="true" />
         </div>
       </header>

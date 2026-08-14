@@ -19,7 +19,8 @@ const estatusPointMap = {
 
 export default function AdminPanel() {
   const navigate = useNavigate()
-  const token = localStorage.getItem('token')
+  const token = sessionStorage.getItem('token')
+  const usuario = JSON.parse(sessionStorage.getItem('usuario') || 'null')
 
   const [stats, setStats] = useState(null)
   const [totalUsuarios, setTotalUsuarios] = useState(0)
@@ -66,6 +67,8 @@ export default function AdminPanel() {
   useEffect(() => {
     if (!token) { navigate('/login'); return }
     queueMicrotask(fetchAll)
+    const interval = setInterval(fetchAll, 15000)
+    return () => clearInterval(interval)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -107,7 +110,7 @@ export default function AdminPanel() {
           <Link to="/admin/panel" className="nav-item active">Panel</Link>
         </nav>
         <div className="right">
-          <div className="username">Admin</div>
+          <div className="username">{usuario?.nombre || 'Admin'}</div>
           <div className="avatar admin-avatar" aria-hidden="true" />
         </div>
       </header>
