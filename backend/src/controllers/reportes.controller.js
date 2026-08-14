@@ -41,6 +41,60 @@ const resolverEdificio = async (letra) => {
   return data?.id || null
 }
 
+// Recalcula bote_mallas.estatus del edificio dado y lo escribe.
+// El trigger de Postgres sync_bote_malla_edificio hace lo mismo, pero
+// tanto el como este UPDATE explicito se han visto fallar de forma
+// intermitente y aparentemente aleatoria via PostgREST (el UPDATE
+// reporta exito pero afecta 0 filas) -- confirmado que NO es por
+// edificio especifico, locks, ni tiempo de vida de la conexion (un
+// UPDATE identico via conexion Postgres directa nunca falla). Sin poder
+// aislar la causa exacta desde aqui, se mitiga con verificacion +
+// reintento: se relee el estatus despues de escribir y, si no quedo
+// como se esperaba, se reintenta hasta 3 veces.
+const resincronizarBoteMalla = async (edificio_id) => {
+  if (!edificio_id) return
+
+  const { data: activos } = await supabase
+    .from('reportes')
+    .select('estatus')
+    .eq('edificio_id', edificio_id)
+    .neq('estatus', 'resuelto')
+
+  const estatuses = (activos || []).map((r) => r.estatus)
+  const nuevoEstatus = estatuses.includes('dañado')
+    ? 'dañado'
+    : estatuses.includes('pendiente')
+      ? 'pendiente'
+      : estatuses.includes('en_proceso')
+        ? 'en_proceso'
+        : 'disponible'
+
+  for (let intento = 1; intento <= 3; intento++) {
+    const { error } = await supabase
+      .from('bote_mallas')
+      .update({ estatus: nuevoEstatus })
+      .eq('edificio_id', edificio_id)
+
+    if (error) {
+      console.error(`Resync bote_malla intento ${intento} fallo:`, error.message)
+      continue
+    }
+
+    const { data: verificacion } = await supabase
+      .from('bote_mallas')
+      .select('estatus')
+      .eq('edificio_id', edificio_id)
+      .single()
+
+    if (verificacion?.estatus === nuevoEstatus) return
+
+    console.error(`Resync bote_malla intento ${intento}: escrito sin error pero no persistio (leido: ${verificacion?.estatus})`)
+    await new Promise((r) => setTimeout(r, 200 * intento))
+  }
+
+  console.error(`Resync bote_malla para edificio ${edificio_id} fallo tras 3 intentos`)
+}
+
 // GET /api/reportes/mapa — estado agregado por edificio para el mapa (polling)
 // El estatus viene de bote_mallas (mantenido por el trigger de sync), los
 // reportes activos van anidados para el desplegable de multiples reportes.
@@ -143,6 +197,7 @@ export const crearReporte = async (req, res) => {
     .single()
 
   if (error) return res.status(500).json({ error: error.message })
+  await resincronizarBoteMalla(edificio_id)
   res.status(201).json(data)
 }
 
@@ -158,7 +213,7 @@ export const actualizarEstatus = async (req, res) => {
 
   const { data: reporte, error: errorBuscar } = await supabase
     .from('reportes')
-    .select('id, estatus, usuario_id')
+    .select('id, estatus, usuario_id, edificio_id')
     .eq('id', id)
     .single()
 
@@ -183,6 +238,7 @@ export const actualizarEstatus = async (req, res) => {
     .single()
 
   if (error) return res.status(500).json({ error: error.message })
+  await resincronizarBoteMalla(reporte.edificio_id)
   res.json(data)
 }
 
@@ -240,9 +296,9 @@ export const editarReporte = async (req, res) => {
 export const eliminarReporte = async (req, res) => {
   const { id } = req.params
 
-  const { error: errorBuscar } = await supabase
+  const { data: reporte, error: errorBuscar } = await supabase
     .from('reportes')
-    .select('id')
+    .select('id, edificio_id')
     .eq('id', id)
     .single()
 
@@ -254,6 +310,7 @@ export const eliminarReporte = async (req, res) => {
     .eq('id', id)
 
   if (error) return res.status(500).json({ error: error.message })
+  await resincronizarBoteMalla(reporte.edificio_id)
   res.json({ message: 'Reporte eliminado correctamente' })
 }
 
