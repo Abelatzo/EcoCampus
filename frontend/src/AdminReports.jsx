@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { useReports, ADMIN_USER } from './reportsStore'
+import { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useReports, TYPE_TO_ESTATUS } from './reportsStore'
 import './AdminReports.scss'
 
 const states = [
@@ -20,7 +20,13 @@ const buildingLetters = buildings.map((b) => b.replace('Edificio ', ''))
 const PAGE_SIZE = 4
 
 export default function ReportsAdmin() {
-  const { reports, addReport, updateReport, deleteReport, deleteReports } = useReports()
+  const navigate = useNavigate()
+  const usuario = JSON.parse(localStorage.getItem('usuario') || 'null')
+  const { reports, loading, errorMsg, addReport, updateReport, deleteReport, deleteReports } = useReports()
+
+  useEffect(() => {
+    if (!localStorage.getItem('token')) navigate('/login')
+  }, [navigate])
 
   const [showModal, setShowModal] = useState(false)
   const [building, setBuilding] = useState(buildings[0])
@@ -105,16 +111,12 @@ export default function ReportsAdmin() {
 
   const createReport = () => {
     if (!newTitle.trim()) return
-    const state = states.find((s) => s.type === reportStatus)
     addReport({
       title: newTitle.trim(),
-      location: newLocationDetail.trim() ? `${building} · ${newLocationDetail.trim()}` : building,
       building: building.replace('Edificio ', ''),
-      status: state.label,
-      statusType: state.type,
-      author: ADMIN_USER,
+      locationDetail: newLocationDetail.trim(),
+      estatus: TYPE_TO_ESTATUS[reportStatus],
       description: newDescription.trim() || 'Sin descripción adicional.',
-      image: newImage ? URL.createObjectURL(newImage) : null,
     })
     closeNewReportModal()
   }
@@ -145,10 +147,12 @@ export default function ReportsAdmin() {
           <Link to="/admin/panel" className="nav-item">Panel</Link>
         </nav>
         <div className="right">
-          <div className="username">Admin</div>
+          <div className="username">{usuario?.nombre || 'Admin'}</div>
           <div className="avatar admin-avatar" aria-hidden="true" />
         </div>
       </header>
+
+      {errorMsg && <p className="no-results" style={{ color: 'var(--red, #d9362e)', padding: '8px 24px' }}>{errorMsg}</p>}
 
       <div className="container">
         <aside className="sidebar left">
@@ -205,7 +209,8 @@ export default function ReportsAdmin() {
           </div>
 
           <div className="report-list">
-            {filteredReportList.length === 0 && <p className="no-results">No hay reportes con ese estado.</p>}
+            {loading && <p className="no-results">Cargando reportes...</p>}
+            {!loading && filteredReportList.length === 0 && <p className="no-results">No hay reportes con ese estado.</p>}
             {pageReportList.map((report) => (
               <article key={report.id} className="report-card">
                 <div className={`status-side ${report.statusType}`} />
@@ -250,9 +255,7 @@ export default function ReportsAdmin() {
                     <div className="card-actions">
                       <div className="action-buttons">
                         <button className="btn outline" onClick={() => setDetailReport(report)}>Ver detalle</button>
-                        {report.author === ADMIN_USER && (
-                          <button className="btn primary" onClick={() => openEdit(report)}>Actualizar</button>
-                        )}
+                        <button className="btn primary" onClick={() => openEdit(report)}>Actualizar</button>
                         <button className="btn danger" onClick={() => setDeleteTarget(report)}>🗑 Eliminar</button>
                       </div>
                     </div>
