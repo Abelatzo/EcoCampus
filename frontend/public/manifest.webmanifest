@@ -1,0 +1,17 @@
+{
+  "name": "EcoCampus",
+  "short_name": "EcoCampus",
+  "description": "Gestión de reportes ecológicos y puntos de reciclaje del campus UTCJ",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#eef6ec",
+  "theme_color": "#2f7a2f",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any"
+    }
+  ]
+}
