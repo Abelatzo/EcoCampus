@@ -91,6 +91,7 @@ export default function Reports() {
       building: building.replace('Edificio ', ''),
       locationDetail: newLocationDetail.trim(),
       description: newDescription.trim() || 'Sin descripción adicional.',
+      image: newImage,
     })
     closeNewReportModal()
   }

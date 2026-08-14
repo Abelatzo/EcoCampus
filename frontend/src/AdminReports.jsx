@@ -117,6 +117,7 @@ export default function ReportsAdmin() {
       locationDetail: newLocationDetail.trim(),
       estatus: TYPE_TO_ESTATUS[reportStatus],
       description: newDescription.trim() || 'Sin descripción adicional.',
+      image: newImage,
     })
     closeNewReportModal()
   }

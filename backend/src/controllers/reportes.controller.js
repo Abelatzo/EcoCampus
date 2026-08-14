@@ -1,4 +1,34 @@
+import { randomUUID } from 'crypto'
+import { fileTypeFromBuffer } from 'file-type'
 import { supabase, supabaseAsUser } from '../config/supabase.js'
+
+const MIME_A_EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }
+
+// POST /api/reportes/foto — subir foto de un reporte
+// El Content-Type que manda el navegador es spoofeable; se detecta el
+// MIME real por firma binaria (magic bytes) antes de aceptar el archivo.
+export const subirFoto = async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No se recibió ningún archivo' })
+  }
+
+  const tipo = await fileTypeFromBuffer(req.file.buffer)
+  if (!tipo || !MIME_A_EXT[tipo.mime]) {
+    return res.status(400).json({ error: 'Archivo inválido: solo se permiten imágenes JPEG, PNG o WEBP' })
+  }
+
+  const nombreArchivo = `${req.user.id}/${randomUUID()}.${MIME_A_EXT[tipo.mime]}`
+
+  const { error } = await supabase.storage
+    .from('reportes-fotos')
+    .upload(nombreArchivo, req.file.buffer, { contentType: tipo.mime })
+
+  if (error) return res.status(500).json({ error: error.message })
+
+  const { data } = supabase.storage.from('reportes-fotos').getPublicUrl(nombreArchivo)
+
+  res.status(201).json({ foto_url: data.publicUrl })
+}
 
 // Helper: resolver edificio_id desde letra
 const resolverEdificio = async (letra) => {

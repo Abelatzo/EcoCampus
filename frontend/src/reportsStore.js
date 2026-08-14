@@ -78,9 +78,26 @@ export function useReportsState() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const subirFoto = async (image) => {
+    const form = new FormData()
+    form.append('foto', image)
+    const res = await fetch(`${API}/api/reportes/foto`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.error || `Error ${res.status}`)
+    }
+    const data = await res.json()
+    return data.foto_url
+  }
+
   const addReport = async (report) => {
     setErrorMsg('')
     try {
+      const foto_url = report.image ? await subirFoto(report.image) : null
       const res = await fetch(`${API}/api/reportes`, {
         method: 'POST',
         headers,
@@ -90,6 +107,7 @@ export function useReportsState() {
           ubicacion: report.locationDetail || null,
           descripcion: report.description,
           estatus: report.estatus || undefined,
+          foto_url,
         }),
       })
       if (!res.ok) {
