@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { useReports, CURRENT_USER } from './reportsStore'
+import { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useReports } from './reportsStore'
 import './Reports.scss'
 
 const buildings = [
@@ -20,8 +20,14 @@ const reportStates = [
 const PAGE_SIZE = 4
 
 export default function Reports() {
-  const { reports, addReport, updateReport } = useReports()
-  const myReports = reports.filter((r) => r.author === CURRENT_USER)
+  const navigate = useNavigate()
+  const usuario = JSON.parse(localStorage.getItem('usuario') || 'null')
+  const { reports, loading, errorMsg, addReport, updateReport } = useReports()
+  const myReports = reports.filter((r) => r.isMine)
+
+  useEffect(() => {
+    if (!localStorage.getItem('token')) navigate('/login')
+  }, [navigate])
 
   const [showModal, setShowModal] = useState(false)
   const [building, setBuilding] = useState(buildings[0])
@@ -82,13 +88,10 @@ export default function Reports() {
     if (!newTitle.trim()) return
     addReport({
       title: newTitle.trim(),
-      location: newLocationDetail.trim() ? `${building} · ${newLocationDetail.trim()}` : building,
       building: building.replace('Edificio ', ''),
-      status: 'Pendiente',
-      statusType: 'pending',
-      author: CURRENT_USER,
+      locationDetail: newLocationDetail.trim(),
       description: newDescription.trim() || 'Sin descripción adicional.',
-      image: newImage ? URL.createObjectURL(newImage) : null,
+      image: newImage,
     })
     closeNewReportModal()
   }
@@ -114,10 +117,12 @@ export default function Reports() {
           <Link to="/events" className="nav-item">Eventos</Link>
         </nav>
         <div className="right">
-          <div className="username">Diego A.</div>
+          <div className="username">{usuario?.nombre || 'Usuario'}</div>
           <div className="avatar" aria-hidden="true" />
         </div>
       </header>
+
+      {errorMsg && <p className="no-results" style={{ color: 'var(--red, #d9362e)', padding: '8px 24px' }}>{errorMsg}</p>}
 
       <div className="container">
         <aside className="sidebar left">
@@ -163,7 +168,8 @@ export default function Reports() {
           </div>
 
           <div className="report-list">
-            {filteredReportList.length === 0 && <p className="no-results">No hay reportes con ese estado.</p>}
+            {loading && <p className="no-results">Cargando reportes...</p>}
+            {!loading && filteredReportList.length === 0 && <p className="no-results">No hay reportes con ese estado.</p>}
             {pageReportList.map((report) => (
               <article key={report.id} className="report-card">
                 <div className={`status-side ${report.statusType}`} />
@@ -184,7 +190,7 @@ export default function Reports() {
                     <div className="card-actions">
                       <div className="action-buttons">
                         <button className="btn outline" onClick={() => setDetailReport(report)}>Ver detalle</button>
-                        {report.author === CURRENT_USER && (
+                        {report.isMine && report.statusType === 'pending' && (
                           <button className="btn primary" onClick={() => openEdit(report)}>Actualizar</button>
                         )}
                       </div>

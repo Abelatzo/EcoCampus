@@ -5,16 +5,39 @@ import './ForgotPassword.scss'
 export default function ForgotPassword() {
   const [email, setEmail] = useState('')
   const [submitted, setSubmitted] = useState(false)
+  const [error, setError] = useState('')
+  const [sending, setSending] = useState(false)
+
+  const sendReset = async () => {
+    setError('')
+    setSending(true)
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() })
+      })
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.error || 'No se pudo enviar el correo')
+      }
+      setSubmitted(true)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSending(false)
+    }
+  }
 
   const handleSubmit = (event) => {
     event.preventDefault()
     if (!email.trim()) return
-    setSubmitted(true)
+    sendReset()
   }
 
   const resendEmail = (event) => {
     event.preventDefault()
-    setSubmitted(true)
+    sendReset()
   }
 
   return (
@@ -64,7 +87,11 @@ export default function ForgotPassword() {
                   />
                 </label>
 
-                <button className="btn primary" type="submit">Enviar instrucciones</button>
+                {error && <p style={{ color: 'red', fontSize: '14px' }}>{error}</p>}
+
+                <button className="btn primary" type="submit" disabled={sending}>
+                  {sending ? 'Enviando...' : 'Enviar instrucciones'}
+                </button>
                 <div className="divider" />
                 <Link to="/login" className="btn outline" role="button">← Volver al inicio de sesión</Link>
               </form>
@@ -77,7 +104,9 @@ export default function ForgotPassword() {
               <p className="info-text">El enlace expira en 30 minutos. Si no lo ves en tu bandeja, revisa la carpeta de spam.</p>
 
               <form className="login-form" onSubmit={resendEmail}>
-                <button className="btn primary" type="submit">Reenviar correo</button>
+                <button className="btn primary" type="submit" disabled={sending}>
+                  {sending ? 'Enviando...' : 'Reenviar correo'}
+                </button>
                 <div className="divider" />
                 <Link to="/login" className="btn outline" role="button">← Volver al inicio de sesión</Link>
               </form>

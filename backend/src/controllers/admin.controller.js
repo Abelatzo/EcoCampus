@@ -91,15 +91,7 @@ export const reportesAdmin = async (req, res) => {
 export const boteMallasAdmin = async (req, res) => {
   const { data, error } = await supabase
     .from('bote_mallas')
-    .select(`
-      id,
-      nombre,
-      latitud,
-      longitud,
-      tipo,
-      estatus,
-      edificios (letra)
-    `)
+    .select('id, estatus, updated_at, edificios (letra, pos_x, pos_y)')
     .order('created_at')
 
   if (error) return res.status(500).json({ error: error.message })

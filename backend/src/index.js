@@ -8,6 +8,7 @@ import adminRoutes from './routes/admin.routes.js'
 import usuariosRoutes from './routes/usuarios.routes.js'
 import eventosRoutes from './routes/eventos.routes.js'
 import edificiosRoutes from './routes/edificios.routes.js'
+import { supabase } from './config/supabase.js'
 
 dotenv.config()
 
@@ -32,3 +33,17 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`)
 })
+
+// Heartbeat: en un proceso persistente (Railway, no serverless), si el
+// cliente de Supabase queda inactivo mucho tiempo, la conexion subyacente
+// puede quedar stale sin que el cliente lo detecte (escrituras devuelven
+// 200 sin persistir -- ver PR de conexion). Una query trivial periodica
+// evita que el proceso llegue a estar inactivo el tiempo suficiente.
+// No toca el fetch/transporte del cliente (eso fue lo que rompio los
+// triggers en un intento anterior), solo lo mantiene en uso.
+const HEARTBEAT_MS = 4 * 60 * 1000
+setInterval(() => {
+  supabase.from('edificios').select('id').limit(1).then(({ error }) => {
+    if (error) console.error('Heartbeat de Supabase fallo:', error.message)
+  })
+}, HEARTBEAT_MS)

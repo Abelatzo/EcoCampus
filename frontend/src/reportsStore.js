@@ -1,84 +1,4 @@
-import { createContext, useContext, useState } from 'react'
-
-export const CURRENT_USER = 'daraiza959'
-export const ADMIN_USER = 'admin'
-
-let nextId = 100
-
-const initialReports = [
-  {
-    id: 1,
-    title: 'Contenedor lleno — planta baja',
-    location: 'Edificio A · Plástico y aluminio',
-    building: 'A',
-    status: 'Pendiente',
-    statusType: 'pending',
-    author: CURRENT_USER,
-    description: 'El contenedor de la planta baja del Edificio A se encuentra completamente lleno. Se requiere vaciado urgente antes del mediodía.',
-    time: 'Hace 2 horas',
-    image: null,
-  },
-  {
-    id: 2,
-    title: 'Residuos en pasillo exterior',
-    location: 'Edificio C · Piso 2',
-    building: 'C',
-    status: 'En proceso',
-    statusType: 'in-progress',
-    author: 'lgarcia',
-    description: 'Se encontraron residuos orgánicos y plástico en el pasillo exterior del segundo piso. Ya fue asignado a mantenimiento.',
-    time: 'Ayer, 14:30',
-    image: null,
-  },
-  {
-    id: 3,
-    title: 'Bote de malla dañado',
-    location: 'Edificio B · Entrada principal',
-    building: 'B',
-    status: 'Resuelto',
-    statusType: 'resolved',
-    author: 'ctorres',
-    description: 'El bote de malla para PET presentaba rotura en la estructura. Fue reemplazado por el equipo de mantenimiento el martes.',
-    time: 'Hace 3 días',
-    image: null,
-  },
-  {
-    id: 4,
-    title: 'Bote dañado — estructura rota',
-    location: 'Edificio B · Pasillo norte',
-    building: 'B',
-    status: 'Dañado',
-    statusType: 'damaged',
-    author: 'ctorres',
-    description: 'El bote de malla presenta una rotura visible en la estructura metálica.',
-    time: 'Hace 5 horas',
-    image: null,
-  },
-  {
-    id: 5,
-    title: 'Mal olor — área verde',
-    location: 'Edificio D · Jardín central',
-    building: 'D',
-    status: 'Pendiente',
-    statusType: 'pending',
-    author: 'lgarcia',
-    description: 'Se percibe mal olor proveniente del área verde junto al Edificio D, posiblemente por residuos orgánicos acumulados.',
-    time: 'Hace 8 horas',
-    image: null,
-  },
-  {
-    id: 6,
-    title: 'Latas sin recolectar',
-    location: 'Edificio K · Cafetería',
-    building: 'K',
-    status: 'En proceso',
-    statusType: 'in-progress',
-    author: CURRENT_USER,
-    description: 'Latas de aluminio acumuladas fuera del contenedor de la cafetería del Edificio K.',
-    time: 'Hace 1 día',
-    image: null,
-  },
-]
+import { createContext, useContext, useState, useEffect } from 'react'
 
 export const ReportsContext = createContext(null)
 
@@ -86,25 +6,180 @@ export function useReports() {
   return useContext(ReportsContext)
 }
 
+const ESTATUS_MAP = {
+  pendiente: { label: 'Pendiente', type: 'pending' },
+  en_proceso: { label: 'En proceso', type: 'in-progress' },
+  resuelto: { label: 'Resuelto', type: 'resolved' },
+  'dañado': { label: 'Dañado', type: 'damaged' },
+}
+
+export const TYPE_TO_ESTATUS = Object.fromEntries(
+  Object.entries(ESTATUS_MAP).map(([estatus, v]) => [v.type, estatus])
+)
+
+function mapReporte(r, currentEmail) {
+  const estado = ESTATUS_MAP[r.estatus] || { label: r.estatus, type: 'pending' }
+  const letra = r.edificios?.letra
+  return {
+    id: r.id,
+    title: r.titulo,
+    location: letra
+      ? (r.ubicacion ? `Edificio ${letra} · ${r.ubicacion}` : `Edificio ${letra}`)
+      : (r.ubicacion || 'Sin ubicación'),
+    building: letra || null,
+    status: estado.label,
+    statusType: estado.type,
+    author: r.usuarios?.nombre || 'Desconocido',
+    isMine: currentEmail ? r.usuarios?.email === currentEmail : false,
+    description: r.descripcion || 'Sin descripción adicional.',
+    time: r.created_at
+      ? new Date(r.created_at).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })
+      : '',
+    image: r.foto_url || null,
+  }
+}
+
 export function useReportsState() {
-  const [reports, setReports] = useState(initialReports)
+  const [reports, setReports] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
 
-  const addReport = (report) => {
-    nextId += 1
-    setReports((prev) => [{ id: nextId, time: 'Hace un momento', image: null, ...report }, ...prev])
+  const token = localStorage.getItem('token')
+  const usuario = JSON.parse(localStorage.getItem('usuario') || 'null')
+  const API = import.meta.env.VITE_API_URL
+  const esAdmin = usuario?.rol === 'administrador'
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
   }
 
-  const updateReport = (id, changes) => {
-    setReports((prev) => prev.map((r) => (r.id === id ? { ...r, ...changes } : r)))
+  const fetchReportes = async () => {
+    if (!token) return
+    setLoading(true)
+    setErrorMsg('')
+    try {
+      const endpoint = esAdmin ? '/api/admin/reportes' : '/api/reportes'
+      const res = await fetch(`${API}${endpoint}`, { headers })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || `Error ${res.status}`)
+      }
+      const data = await res.json()
+      setReports(Array.isArray(data) ? data.map((r) => mapReporte(r, usuario?.email)) : [])
+    } catch (err) {
+      setErrorMsg('No se pudieron cargar los reportes: ' + err.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const deleteReport = (id) => {
-    setReports((prev) => prev.filter((r) => r.id !== id))
+  useEffect(() => {
+    queueMicrotask(fetchReportes)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const subirFoto = async (image) => {
+    const form = new FormData()
+    form.append('foto', image)
+    const res = await fetch(`${API}/api/reportes/foto`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.error || `Error ${res.status}`)
+    }
+    const data = await res.json()
+    return data.foto_url
   }
 
-  const deleteReports = (ids) => {
-    setReports((prev) => prev.filter((r) => !ids.includes(r.id)))
+  const addReport = async (report) => {
+    setErrorMsg('')
+    try {
+      const foto_url = report.image ? await subirFoto(report.image) : null
+      const res = await fetch(`${API}/api/reportes`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          edificio: report.building,
+          titulo: report.title,
+          ubicacion: report.locationDetail || null,
+          descripcion: report.description,
+          estatus: report.estatus || undefined,
+          foto_url,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || `Error ${res.status}`)
+      }
+      await fetchReportes()
+    } catch (err) {
+      setErrorMsg('No se pudo crear el reporte: ' + err.message)
+    }
   }
 
-  return { reports, addReport, updateReport, deleteReport, deleteReports }
+  const updateReport = async (id, changes) => {
+    setErrorMsg('')
+    try {
+      if (changes.statusType) {
+        const res = await fetch(`${API}/api/reportes/${id}/estatus`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify({ estatus: TYPE_TO_ESTATUS[changes.statusType] }),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          throw new Error(err.error || `Error ${res.status}`)
+        }
+      } else {
+        const body = {}
+        if (changes.title !== undefined) body.titulo = changes.title
+        if (changes.description !== undefined) body.descripcion = changes.description
+        const res = await fetch(`${API}/api/reportes/${id}`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify(body),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          throw new Error(err.error || `Error ${res.status}`)
+        }
+      }
+      await fetchReportes()
+    } catch (err) {
+      setErrorMsg('No se pudo actualizar el reporte: ' + err.message)
+    }
+  }
+
+  const deleteReport = async (id) => {
+    setErrorMsg('')
+    try {
+      const res = await fetch(`${API}/api/reportes/${id}`, { method: 'DELETE', headers })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || `Error ${res.status}`)
+      }
+      setReports((prev) => prev.filter((r) => r.id !== id))
+    } catch (err) {
+      setErrorMsg('No se pudo eliminar el reporte: ' + err.message)
+    }
+  }
+
+  const deleteReports = async (ids) => {
+    setErrorMsg('')
+    try {
+      const results = await Promise.all(
+        ids.map((id) => fetch(`${API}/api/reportes/${id}`, { method: 'DELETE', headers }))
+      )
+      const fallo = results.some((res) => !res.ok)
+      setReports((prev) => prev.filter((r) => !ids.includes(r.id)))
+      if (fallo) throw new Error('Algunos reportes no se pudieron eliminar')
+    } catch (err) {
+      setErrorMsg(err.message)
+    }
+  }
+
+  return { reports, loading, errorMsg, addReport, updateReport, deleteReport, deleteReports, refetch: fetchReportes }
 }

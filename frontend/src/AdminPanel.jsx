@@ -12,7 +12,8 @@ const statusMap = {
 
 const estatusPointMap = {
   disponible: { label: 'Disponible', statusClass: 'available' },
-  saturado: { label: 'Saturado', statusClass: 'full' },
+  pendiente: { label: 'Pendiente', statusClass: 'pending' },
+  en_proceso: { label: 'En proceso', statusClass: 'progress' },
   dañado: { label: 'Dañado', statusClass: 'damaged' },
 }
 
@@ -33,11 +34,6 @@ export default function AdminPanel() {
     'Authorization': `Bearer ${token}`,
     'Content-Type': 'application/json'
   }
-
-  useEffect(() => {
-    if (!token) { navigate('/login'); return }
-    fetchAll()
-  }, [])
 
   const fetchAll = async () => {
     try {
@@ -66,6 +62,12 @@ export default function AdminPanel() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (!token) { navigate('/login'); return }
+    queueMicrotask(fetchAll)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const barChart = stats ? [
     { label: 'Pendiente', value: stats.pendientes || 0, color: 'orange' },
@@ -175,7 +177,7 @@ export default function AdminPanel() {
                 const s = estatusPointMap[p.estatus] || { label: p.estatus, statusClass: 'available' }
                 return (
                   <li key={p.id} className={`list-row ${s.statusClass}`}>
-                    <div className="list-title">{p.edificios?.letra} · {p.nombre}</div>
+                    <div className="list-title">Edificio {p.edificios?.letra}</div>
                     <span className={`pill ${s.statusClass}`}>{s.label}</span>
                   </li>
                 )

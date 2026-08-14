@@ -35,7 +35,7 @@ export default function Login() {
         navigate('/map')
       }
 
-    } catch (err) {
+    } catch {
       setError('Error al conectar con el servidor')
     }
   }
@@ -76,8 +76,6 @@ export default function Login() {
                 onChange={(e) => setPassword(e.target.value)}
               />
             </label>
-
-            {error && <p style={{ color: 'red', fontSize: '14px' }}>{error}</p>}
 
             {error && <p style={{ color: 'red', fontSize: '14px' }}>{error}</p>}
 
