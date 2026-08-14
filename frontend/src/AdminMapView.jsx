@@ -19,7 +19,7 @@ const POLL_MS = 15000
 
 export default function AdminMapView() {
   const navigate = useNavigate()
-  const usuario = JSON.parse(localStorage.getItem('usuario') || 'null')
+  const usuario = JSON.parse(sessionStorage.getItem('usuario') || 'null')
   const { reports } = useReports()
   const { offset, containerRef, imageRef, onPointerDown, onPointerMove, onPointerUp, clientToImagePercent } = useDraggableMap()
   const [statusDraft, setStatusDraft] = useState([])
@@ -34,7 +34,7 @@ export default function AdminMapView() {
   const [marcando, setMarcando] = useState(false)
   const [edificioSeleccionado, setEdificioSeleccionado] = useState('')
 
-  const token = localStorage.getItem('token')
+  const token = sessionStorage.getItem('token')
   const API = import.meta.env.VITE_API_URL
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
 
@@ -200,7 +200,7 @@ export default function AdminMapView() {
             >
               <img ref={imageRef} src={campusMap} className="map-image" alt="" draggable={false} />
 
-              {marcando && edificios.filter((e) => e.pos_x != null && e.pos_y != null).map((e) => (
+              {edificios.filter((e) => e.pos_x != null && e.pos_y != null).map((e) => (
                 <div
                   key={e.id}
                   className="posicion-marker"

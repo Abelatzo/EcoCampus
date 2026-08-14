@@ -30,6 +30,7 @@ export function useDraggableMap() {
   }, [])
 
   const onPointerDown = useCallback((e) => {
+    if (e.button !== 0) return
     drag.current = { startX: e.clientX, startY: e.clientY, startOffset: offset }
     e.currentTarget.setPointerCapture(e.pointerId)
   }, [offset])

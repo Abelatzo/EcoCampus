@@ -46,6 +46,7 @@ const PAGE_SIZE = 4
 let nextId = 100
 
 export default function AdminEvents() {
+  const usuario = JSON.parse(sessionStorage.getItem('usuario') || 'null')
   const [postList, setPostList] = useState(initialPosts)
   const [showModal, setShowModal] = useState(false)
   const [postType, setPostType] = useState('Evento')
@@ -144,7 +145,7 @@ export default function AdminEvents() {
           <Link to="/admin/panel" className="nav-item">Panel</Link>
         </nav>
         <div className="right">
-          <div className="username">Admin</div>
+          <div className="username">{usuario?.nombre || 'Admin'}</div>
           <div className="avatar admin-avatar" aria-hidden="true" />
         </div>
       </header>

@@ -44,8 +44,8 @@ export function useReportsState() {
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
 
-  const token = localStorage.getItem('token')
-  const usuario = JSON.parse(localStorage.getItem('usuario') || 'null')
+  const token = sessionStorage.getItem('token')
+  const usuario = JSON.parse(sessionStorage.getItem('usuario') || 'null')
   const API = import.meta.env.VITE_API_URL
   const esAdmin = usuario?.rol === 'administrador'
   const headers = {

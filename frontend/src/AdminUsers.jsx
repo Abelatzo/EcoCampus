@@ -18,8 +18,8 @@ function mapUsuario(u) {
 
 export default function AdminUsers() {
   const navigate = useNavigate()
-  const token = localStorage.getItem('token')
-  const usuario = JSON.parse(localStorage.getItem('usuario') || 'null')
+  const token = sessionStorage.getItem('token')
+  const usuario = JSON.parse(sessionStorage.getItem('usuario') || 'null')
   const API = import.meta.env.VITE_API_URL
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
 

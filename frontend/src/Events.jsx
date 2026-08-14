@@ -54,6 +54,7 @@ const filters = Object.keys(filterMap)
 const PAGE_SIZE = 4
 
 export default function Events() {
+  const usuario = JSON.parse(sessionStorage.getItem('usuario') || 'null')
   const [activeFilter, setActiveFilter] = useState('Todos')
   const [detailEvent, setDetailEvent] = useState(null)
   const [page, setPage] = useState(1)
@@ -83,7 +84,7 @@ export default function Events() {
           <Link to="/events" className="nav-item active">Eventos</Link>
         </nav>
         <div className="right">
-          <div className="username">Diego A.</div>
+          <div className="username">{usuario?.nombre || 'Usuario'}</div>
           <div className="avatar" aria-hidden="true" />
         </div>
       </header>

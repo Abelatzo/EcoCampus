@@ -21,12 +21,12 @@ const PAGE_SIZE = 4
 
 export default function Reports() {
   const navigate = useNavigate()
-  const usuario = JSON.parse(localStorage.getItem('usuario') || 'null')
+  const usuario = JSON.parse(sessionStorage.getItem('usuario') || 'null')
   const { reports, loading, errorMsg, addReport, updateReport } = useReports()
   const myReports = reports.filter((r) => r.isMine)
 
   useEffect(() => {
-    if (!localStorage.getItem('token')) navigate('/login')
+    if (!sessionStorage.getItem('token')) navigate('/login')
   }, [navigate])
 
   const [showModal, setShowModal] = useState(false)
