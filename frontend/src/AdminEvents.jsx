@@ -1,63 +1,89 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, Link } from 'react-router-dom'
 import './AdminEvents.scss'
 
-const initialPosts = [
-  {
-    id: 1,
-    type: 'Evento', typeClass: 'event', status: 'Próximo', statusClass: 'upcoming',
-    title: 'Taller de reciclaje de PET',
-    date: '28 de junio, 2026 · 10:00 AM', location: 'Edificio A — Aula 101',
-    description: 'Aprende a clasificar y reutilizar botellas de PET. Actividad abierta a toda la comunidad universitaria.',
-  },
-  {
-    id: 2,
-    type: 'Actualización', typeClass: 'update', status: 'Publicado', statusClass: 'published',
-    title: 'Estado de botes malla — Semana 24',
-    date: '20 de junio, 2026', location: null,
-    description: 'Se realizó revisión semanal de los 18 botes malla del campus. 15 en estado disponible...',
-  },
-  {
-    id: 3,
-    type: 'Evento', typeClass: 'event', status: 'Próximo', statusClass: 'upcoming',
-    title: 'Día del Medio Ambiente UTCJ',
-    date: '05 de julio, 2026 · 09:00 AM', location: 'Plaza principal del campus',
-    description: 'Celebración institucional del Día Mundial del Medio Ambiente. Actividades de con...',
-  },
-  {
-    id: 4,
-    type: 'Información', typeClass: 'info', status: 'Publicado', statusClass: 'published',
-    title: 'Nueva zona de reciclaje — Acceso norte',
-    date: '15 de junio, 2026', location: null,
-    description: 'Se habilitó una nueva estación de reciclaje en el acceso norte del campus, con contenedores diferenciados para PET, cartón y residuos genera...',
-  },
-]
 
 const typeInfo = {
-  Evento: { typeClass: 'event', status: 'Próximo', statusClass: 'upcoming' },
-  Actualización: { typeClass: 'update', status: 'Publicado', statusClass: 'published' },
-  Información: { typeClass: 'info', status: 'Publicado', statusClass: 'published' },
+  evento: { type: 'Evento', typeClass: 'event' },
+  actualizacion: { type: 'Actualización', typeClass: 'update' },
+  informacion: { type: 'Información', typeClass: 'info' },
+}
+// Mapa inverso: de la etiqueta de UI al valor que espera el backend
+const typeToBackend = {
+  Evento: 'evento',
+  'Actualización': 'actualizacion',
+  'Información': 'informacion',
 }
 
 const filterMap = { Todos: null, Eventos: 'event', Actualizaciones: 'update', Información: 'info' }
 const filters = Object.keys(filterMap)
 const PAGE_SIZE = 4
 
-let nextId = 100
+// Convierte el registro que manda el backend a la forma que ya consume la UI
+function mapEvento(e) {
+  const info = typeInfo[e.tipo] || { type: e.tipo, typeClass: 'info' }
+  return {
+    id: e.id,
+    tipo: e.tipo, // valor crudo del backend, lo necesitamos para editar/crear
+    type: info.type,
+    typeClass: info.typeClass,
+    status: e.publicado ? 'Publicado' : 'Oculto',
+    statusClass: e.publicado ? 'published' : 'hidden',
+    publicado: e.publicado,
+    title: e.titulo,
+    fecha_evento: e.fecha_evento, // ISO crudo, lo necesitamos para precargar el datetime-local al editar
+    date: e.fecha_evento
+      ? new Date(e.fecha_evento).toLocaleString('es-MX', { dateStyle: 'long', timeStyle: 'short' })
+      : 'Fecha por definir',
+    location: e.lugar || null,
+    description: e.descripcion || 'Sin descripción adicional.',
+  }
+}
+
+// Convierte un valor de <input type="datetime-local"> (ej. "2026-06-28T10:00")
+// al ISO completo que exige el backend (ej. "2026-06-28T10:00:00Z")
+function toISO(localDateTimeValue) {
+  if (!localDateTimeValue) return null
+  const d = new Date(localDateTimeValue)
+  if (isNaN(d)) return null
+  return d.toISOString()
+}
+
+// Convierte un ISO del backend al formato que espera <input type="datetime-local">
+function toDatetimeLocal(isoValue) {
+  if (!isoValue) return ''
+  const d = new Date(isoValue)
+  if (isNaN(d)) return ''
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
 
 export default function AdminEvents() {
   const usuario = JSON.parse(sessionStorage.getItem('usuario') || 'null')
-  const [postList, setPostList] = useState(initialPosts)
+  const navigate = useNavigate()
+  const token = sessionStorage.getItem('token')
+  const API = import.meta.env.VITE_API_URL
+  const headers = {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  }
+
+  const [postList, setPostList] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [errorMsg, setErrorMsg] = useState('')
+
   const [showModal, setShowModal] = useState(false)
   const [postType, setPostType] = useState('Evento')
   const [newTitle, setNewTitle] = useState('')
   const [newDate, setNewDate] = useState('')
   const [newLocation, setNewLocation] = useState('')
   const [newDescription, setNewDescription] = useState('')
+  const [saving, setSaving] = useState(false)
 
   const [activeFilter, setActiveFilter] = useState('Todos')
   const [page, setPage] = useState(1)
 
+  const [searchQuery, setSearchQuery] = useState('')
   const [detailPost, setDetailPost] = useState(null)
   const [editPost, setEditPost] = useState(null)
   const [editTitle, setEditTitle] = useState('')
@@ -66,14 +92,48 @@ export default function AdminEvents() {
   const [editDescription, setEditDescription] = useState('')
   const [deleteTarget, setDeleteTarget] = useState(null)
 
+  useEffect(() => {
+    if (!token) { navigate('/login'); return }
+    fetchEventos()
+  }, [])
+
+  const fetchEventos = async () => {
+    setLoading(true)
+    setErrorMsg('')
+    try {
+      const res = await fetch(`${API}/api/eventos`, { headers })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || `Error ${res.status}`)
+      }
+      const data = await res.json()
+      setPostList(Array.isArray(data) ? data.map(mapEvento) : [])
+    } catch (err) {
+      setErrorMsg('No se pudieron cargar las publicaciones: ' + err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const selectFilter = (f) => {
     setActiveFilter(f)
     setPage(1)
   }
 
-  const filteredPosts = filterMap[activeFilter]
+  let filteredPosts = filterMap[activeFilter]
     ? postList.filter((p) => p.typeClass === filterMap[activeFilter])
     : postList
+
+  if (searchQuery.trim()) {
+    const q = searchQuery.trim().toLowerCase()
+    filteredPosts = filteredPosts.filter((p) =>
+      p.title.toLowerCase().includes(q) ||
+      (p.description && p.description.toLowerCase().includes(q)) ||
+      (p.location && p.location.toLowerCase().includes(q)) ||
+      (p.date && p.date.toLowerCase().includes(q)) ||
+      (p.type && p.type.toLowerCase().includes(q))
+    )
+  }
 
   const totalPages = Math.max(1, Math.ceil(filteredPosts.length / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)
@@ -92,42 +152,95 @@ export default function AdminEvents() {
     resetNewPostForm()
   }
 
-  const createPost = () => {
+  const createPost = async () => {
     if (!newTitle.trim()) return
-    const info = typeInfo[postType]
-    nextId += 1
-    setPostList((prev) => [{
-      id: nextId,
-      type: postType,
-      ...info,
-      title: newTitle.trim(),
-      date: newDate.trim() || 'Fecha por definir',
-      location: newLocation.trim() || null,
-      description: newDescription.trim() || 'Sin descripción adicional.',
-    }, ...prev])
-    closeNewPostModal()
+    setSaving(true)
+    setErrorMsg('')
+    try {
+      const body = {
+        tipo: typeToBackend[postType],
+        titulo: newTitle.trim(),
+        fecha_evento: toISO(newDate),
+        lugar: newLocation.trim() || null,
+        descripcion: newDescription.trim() || null,
+        publicado: true,
+      }
+      const res = await fetch(`${API}/api/eventos`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || `Error ${res.status}`)
+      }
+      const created = await res.json()
+      setPostList((prev) => [mapEvento(created), ...prev])
+      closeNewPostModal()
+    } catch (err) {
+      setErrorMsg('No se pudo crear la publicación: ' + err.message)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const openEdit = (post) => {
     setEditPost(post)
     setEditTitle(post.title)
-    setEditDate(post.date)
+    setEditDate(toDatetimeLocal(post.fecha_evento))
     setEditLocation(post.location || '')
     setEditDescription(post.description)
   }
 
-  const saveEdit = () => {
-    setPostList((prev) => prev.map((p) => (
-      p.id === editPost.id
-        ? { ...p, title: editTitle, date: editDate, location: editLocation.trim() || null, description: editDescription }
-        : p
-    )))
-    setEditPost(null)
+  const saveEdit = async () => {
+    if (!editPost) return
+    setSaving(true)
+    setErrorMsg('')
+    try {
+      const body = {
+        titulo: editTitle.trim(),
+        fecha_evento: toISO(editDate),
+        lugar: editLocation.trim() || null,
+        descripcion: editDescription.trim() || null,
+      }
+      const res = await fetch(`${API}/api/eventos/${editPost.id}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || `Error ${res.status}`)
+      }
+      await fetchEventos()
+      setEditPost(null)
+    } catch (err) {
+      setErrorMsg('No se pudo guardar la edición: ' + err.message)
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const confirmDelete = () => {
-    setPostList((prev) => prev.filter((p) => p.id !== deleteTarget.id))
-    setDeleteTarget(null)
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    setSaving(true)
+    setErrorMsg('')
+    try {
+      const res = await fetch(`${API}/api/eventos/${deleteTarget.id}`, {
+        method: 'DELETE',
+        headers,
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || `Error ${res.status}`)
+      }
+      setPostList((prev) => prev.filter((p) => p.id !== deleteTarget.id))
+      setDeleteTarget(null)
+    } catch (err) {
+      setErrorMsg('No se pudo eliminar la publicación: ' + err.message)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -156,9 +269,15 @@ export default function AdminEvents() {
           <p className="subtitle">Publica, edita y elimina eventos, actualizaciones e información para la comunidad</p>
         </div>
 
+        {errorMsg && <p className="error-banner">{errorMsg}</p>}
+
         <div className="toolbar">
           <div className="search-bar">
-            <input placeholder="Buscar publicaciones..." />
+            <input
+              placeholder="Buscar publicaciones..."
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setPage(1) }}
+            />
           </div>
           <div className="filter-pills">
             {filters.map((f) => (
@@ -168,33 +287,37 @@ export default function AdminEvents() {
           <button className="btn new-post" onClick={() => setShowModal(true)}>+ Nueva publicación</button>
         </div>
 
-        <div className="posts-list">
-          {pagePosts.length === 0 && <p className="no-results">No hay publicaciones de este tipo.</p>}
-          {pagePosts.map((p) => (
-            <article key={p.id} className={`post-row ${p.typeClass}`}>
-              <div className="row-side" />
-              <div className="row-content">
-                <div className="tags-row">
-                  <span className={`tag ${p.typeClass}`}>{p.type}</span>
-                  <span className={`tag ${p.statusClass}`}>{p.status}</span>
-                </div>
-                <h3>{p.title}</h3>
-                <div className="meta">
-                  <span className="meta-item">📅 {p.date}</span>
-                  {p.location && <span className="meta-item">📍 {p.location}</span>}
-                </div>
-                <p className="description">{p.description}</p>
-              </div>
-              <div className="row-actions">
-                <button className="btn action preview" onClick={() => setDetailPost(p)}>Ver más</button>
-                <button className="btn action edit" onClick={() => openEdit(p)}>✎ Editar</button>
-                <button className="btn action delete" onClick={() => setDeleteTarget(p)}>🗑 Eliminar</button>
-              </div>
-            </article>
-          ))}
-        </div>
+        {loading && <p className="loading-text">Cargando publicaciones...</p>}
 
-        {filteredPosts.length > 0 && (
+        {!loading && (
+          <div className="posts-list">
+            {pagePosts.length === 0 && <p className="no-results">No hay publicaciones de este tipo.</p>}
+            {pagePosts.map((p) => (
+              <article key={p.id} className={`post-row ${p.typeClass}`}>
+                <div className="row-side" />
+                <div className="row-content">
+                  <div className="tags-row">
+                    <span className={`tag ${p.typeClass}`}>{p.type}</span>
+                    <span className={`tag ${p.statusClass}`}>{p.status}</span>
+                  </div>
+                  <h3>{p.title}</h3>
+                  <div className="meta">
+                    <span className="meta-item">📅 {p.date}</span>
+                    {p.location && <span className="meta-item">📍 {p.location}</span>}
+                  </div>
+                  <p className="description">{p.description}</p>
+                </div>
+                <div className="row-actions">
+                  <button className="btn action preview" onClick={() => setDetailPost(p)}>Ver más</button>
+                  <button className="btn action edit" onClick={() => openEdit(p)}>✎ Editar</button>
+                  <button className="btn action delete" onClick={() => setDeleteTarget(p)}>🗑 Eliminar</button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+
+        {!loading && filteredPosts.length > 0 && (
           <div className="pagination">
             <a href="#" className="page-link" onClick={(e) => { e.preventDefault(); setPage((p) => Math.max(1, p - 1)) }}>← Anterior</a>
             <span className="page-count">Página {currentPage} de {totalPages}</span>
@@ -234,11 +357,11 @@ export default function AdminEvents() {
 
               <label className="modal-field row">
                 <div className="modal-subfield">
-                  <span>Fecha y lugar (opcional para eventos)</span>
-                  <input type="text" placeholder="DD/MM/AAAA" value={newDate} onChange={(e) => setNewDate(e.target.value)} />
+                  <span>Fecha y hora (opcional para eventos)</span>
+                  <input type="datetime-local" value={newDate} onChange={(e) => setNewDate(e.target.value)} />
                 </div>
                 <div className="modal-subfield">
-                  <span className="invisible-label">Lugar</span>
+                  <span>Lugar (opcional)</span>
                   <input type="text" placeholder="Lugar (opcional)" value={newLocation} onChange={(e) => setNewLocation(e.target.value)} />
                 </div>
               </label>
@@ -250,8 +373,8 @@ export default function AdminEvents() {
             </div>
 
             <div className="modal-actions">
-              <button className="btn outline" onClick={closeNewPostModal}>Cancelar</button>
-              <button className="btn primary" onClick={createPost}>Publicar ahora</button>
+              <button className="btn outline" onClick={closeNewPostModal} disabled={saving}>Cancelar</button>
+              <button className="btn primary" onClick={createPost} disabled={saving}>{saving ? 'Publicando...' : 'Publicar ahora'}</button>
             </div>
           </div>
         </div>
@@ -312,8 +435,8 @@ export default function AdminEvents() {
 
               <label className="modal-field row">
                 <div className="modal-subfield">
-                  <span>Fecha</span>
-                  <input type="text" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
+                  <span>Fecha y hora</span>
+                  <input type="datetime-local" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
                 </div>
                 <div className="modal-subfield">
                   <span>Lugar (opcional)</span>
@@ -328,8 +451,8 @@ export default function AdminEvents() {
             </div>
 
             <div className="modal-actions">
-              <button className="btn outline" onClick={() => setEditPost(null)}>Cancelar</button>
-              <button className="btn primary" onClick={saveEdit}>Guardar cambios</button>
+              <button className="btn outline" onClick={() => setEditPost(null)} disabled={saving}>Cancelar</button>
+              <button className="btn primary" onClick={saveEdit} disabled={saving}>{saving ? 'Guardando...' : 'Guardar cambios'}</button>
             </div>
           </div>
         </div>
@@ -350,8 +473,8 @@ export default function AdminEvents() {
             </div>
 
             <div className="modal-actions">
-              <button className="btn outline" onClick={() => setDeleteTarget(null)}>Cancelar</button>
-              <button className="btn danger" onClick={confirmDelete}>Sí, eliminar</button>
+              <button className="btn outline" onClick={() => setDeleteTarget(null)} disabled={saving}>Cancelar</button>
+              <button className="btn danger" onClick={confirmDelete} disabled={saving}>{saving ? 'Eliminando...' : 'Sí, eliminar'}</button>
             </div>
           </div>
         </div>
