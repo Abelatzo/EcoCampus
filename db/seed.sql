@@ -1,10 +1,10 @@
 -- =============================================
 -- ECOCAMPUS DB - Seed data
 -- edificios: catálogo fijo A-Q del campus UTCJ
--- bote_mallas: levantamiento manual en campus UTCJ
+-- bote_mallas: una fila por edificio (estatus agregado de reportes)
 -- =============================================
--- NOTA: latitud/longitud quedan NULL (placeholder). Diego debe actualizar
--- con GPS real por punto cuando tenga el mapa listo.
+-- NOTA: pos_x/pos_y quedan NULL (placeholder) hasta que se marquen desde
+-- AdminMapView (modo "marcar edificio").
 -- DECISIÓN (2026-08-13): solo se dan de alta edificios de letra alfabética
 -- (A-Q). 'Cafetería' y 'Guardería' del seed anterior no encajan en el
 -- catálogo (letra única) y quedan descartados permanentemente, no solo
@@ -16,17 +16,6 @@ INSERT INTO public.edificios (letra) VALUES
   ('J'), ('K'), ('L'), ('M'), ('N'), ('O'), ('Q')
 ON CONFLICT (letra) DO NOTHING;
 
-INSERT INTO public.bote_mallas (edificio_id, nombre)
-SELECT id, nombre FROM public.edificios, (VALUES
-  ('H', 'Planta alta'),
-  ('H', 'Planta baja'),
-  ('J', 'Entrada'),
-  ('I', 'Planta alta'),
-  ('I', 'Planta baja'),
-  ('A', 'Puerta 1'),
-  ('A', 'Puerta 2'),
-  ('C', 'Puerta 1'),
-  ('C', 'Puerta 2')
-) AS v(letra, nombre)
-WHERE edificios.letra = v.letra
-ON CONFLICT (edificio_id, nombre) DO NOTHING;
+INSERT INTO public.bote_mallas (edificio_id, estatus)
+SELECT id, 'disponible' FROM public.edificios
+ON CONFLICT (edificio_id) DO NOTHING;

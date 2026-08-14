@@ -28,25 +28,27 @@ CREATE TABLE IF NOT EXISTS public.usuarios (
 CREATE TABLE IF NOT EXISTS public.edificios (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   letra TEXT NOT NULL UNIQUE CHECK (letra ~ '^[A-Q]$'),
+  -- Posicion en PORCENTAJE (0-100) sobre frontend/src/assets/ImagenMapa.jpeg,
+  -- no coordenadas GPS -- el mapa es una imagen fija del campus, no geografico.
+  pos_x DECIMAL(5,2) CHECK (pos_x IS NULL OR (pos_x >= 0 AND pos_x <= 100)),
+  pos_y DECIMAL(5,2) CHECK (pos_y IS NULL OR (pos_y >= 0 AND pos_y <= 100)),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- =============================================
 -- TABLA: bote_mallas
--- Puntos ecológicos del mapa (gestionados por admin), asociados a un
--- edificio. Independientes de los reportes de estudiantes.
+-- Contenedor del estatus agregado de reportes de un edificio (una fila
+-- por edificio). Los reportes solo eligen edificio, no un punto fisico
+-- especifico -- esa aclaracion queda en reportes.descripcion como texto
+-- libre. El estatus lo mantiene el trigger sync_bote_malla_edificio, no
+-- se escribe manualmente.
 -- =============================================
 CREATE TABLE IF NOT EXISTS public.bote_mallas (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  edificio_id UUID NOT NULL REFERENCES public.edificios(id) ON DELETE RESTRICT,
-  nombre TEXT NOT NULL,
-  latitud DECIMAL(10, 8),
-  longitud DECIMAL(11, 8),
-  tipo TEXT NOT NULL DEFAULT 'bote_malla' CHECK (tipo IN ('bote_malla', 'contenedor_externo', 'punto_reciclaje')),
+  edificio_id UUID NOT NULL UNIQUE REFERENCES public.edificios(id) ON DELETE CASCADE,
   estatus TEXT NOT NULL DEFAULT 'disponible' CHECK (estatus IN ('disponible', 'pendiente', 'en_proceso', 'dañado')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE(edificio_id, nombre)
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- =============================================
@@ -127,6 +129,43 @@ CREATE TRIGGER trg_reportes_updated_at
 CREATE TRIGGER trg_eventos_updated_at
   BEFORE UPDATE ON public.eventos
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- =============================================
+-- TRIGGER: sincronizar bote_mallas.estatus con los reportes del edificio
+-- Prioridad: dañado > pendiente > en_proceso > disponible (sin reportes
+-- activos). Corre en la misma transaccion que el write de reportes.
+-- =============================================
+CREATE OR REPLACE FUNCTION public.sync_bote_malla_edificio()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_edificio_id UUID;
+  v_estatus TEXT;
+BEGIN
+  v_edificio_id := COALESCE(NEW.edificio_id, OLD.edificio_id);
+
+  SELECT
+    CASE
+      WHEN bool_or(estatus = 'dañado') THEN 'dañado'
+      WHEN bool_or(estatus = 'pendiente') THEN 'pendiente'
+      WHEN bool_or(estatus = 'en_proceso') THEN 'en_proceso'
+      ELSE 'disponible'
+    END
+  INTO v_estatus
+  FROM public.reportes
+  WHERE edificio_id = v_edificio_id AND estatus <> 'resuelto';
+
+  UPDATE public.bote_mallas
+  SET estatus = COALESCE(v_estatus, 'disponible')
+  WHERE edificio_id = v_edificio_id;
+
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql
+SET search_path = '';
+
+CREATE TRIGGER trg_sync_bote_malla_edificio
+  AFTER INSERT OR UPDATE OF estatus OR DELETE ON public.reportes
+  FOR EACH ROW EXECUTE FUNCTION public.sync_bote_malla_edificio();
 
 -- =============================================
 -- ROW LEVEL SECURITY (RLS)
@@ -220,23 +259,13 @@ CREATE POLICY "edificios: admin elimina"
 -- -----------------------------------------------
 -- POLÍTICAS: bote_mallas
 -- -----------------------------------------------
--- Escritura separada por comando (no FOR ALL) para no duplicar el SELECT
--- ya cubierto por "lectura autenticados"
+-- Solo lectura: el estatus lo escribe unicamente el trigger de sync
+-- (corre bajo el service role del backend, bypassa RLS). No hay endpoint
+-- que escriba bote_mallas directo, por eso no hace falta policy de
+-- escritura para authenticated/admin.
 CREATE POLICY "bote_mallas: lectura autenticados"
   ON public.bote_mallas FOR SELECT
   USING ((select auth.uid()) IS NOT NULL);
-
-CREATE POLICY "bote_mallas: admin inserta"
-  ON public.bote_mallas FOR INSERT
-  WITH CHECK (get_user_rol() = 'administrador');
-
-CREATE POLICY "bote_mallas: admin actualiza"
-  ON public.bote_mallas FOR UPDATE
-  USING (get_user_rol() = 'administrador');
-
-CREATE POLICY "bote_mallas: admin elimina"
-  ON public.bote_mallas FOR DELETE
-  USING (get_user_rol() = 'administrador');
 
 -- -----------------------------------------------
 -- POLÍTICAS: reportes

@@ -41,23 +41,39 @@ const resolverEdificio = async (letra) => {
   return data?.id || null
 }
 
-// GET /api/reportes/mapa — estado actual de todos los bote-mallas (polling)
+// GET /api/reportes/mapa — estado agregado por edificio para el mapa (polling)
+// El estatus viene de bote_mallas (mantenido por el trigger de sync), los
+// reportes activos van anidados para el desplegable de multiples reportes.
 export const estadoMapa = async (req, res) => {
   const { data, error } = await supabase
-    .from('bote_mallas')
+    .from('edificios')
     .select(`
       id,
-      nombre,
-      latitud,
-      longitud,
-      tipo,
-      estatus,
-      edificios (letra)
+      letra,
+      pos_x,
+      pos_y,
+      bote_mallas (estatus),
+      reportes (id, titulo, descripcion, estatus, created_at)
     `)
-    .order('created_at')
+    .order('letra')
 
   if (error) return res.status(500).json({ error: error.message })
-  res.json(data)
+
+  const resultado = data.map((e) => {
+    const boteMalla = Array.isArray(e.bote_mallas) ? e.bote_mallas[0] : e.bote_mallas
+    return {
+      edificio_id: e.id,
+      letra: e.letra,
+      pos_x: e.pos_x,
+      pos_y: e.pos_y,
+      estatus: boteMalla?.estatus || 'disponible',
+      reportes: (e.reportes || [])
+        .filter((r) => r.estatus !== 'resuelto')
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),
+    }
+  })
+
+  res.json(resultado)
 }
 
 // GET /api/reportes — reportes activos (pendiente o en_proceso)

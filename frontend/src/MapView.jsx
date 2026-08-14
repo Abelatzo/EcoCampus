@@ -1,8 +1,9 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import campusMap from './assets/ImagenMapa.jpeg'
-import { useDraggableBackground } from './useDraggableBackground'
+import { useDraggableMap } from './useDraggableMap'
 import { useReports } from './reportsStore'
+import EdificioMarcadores from './EdificioMarcadores'
 import './MapView.scss'
 
 const reportStates = [
@@ -14,12 +15,39 @@ const reportStates = [
 
 const statusDotClass = { pending: 'orange', 'in-progress': 'blue', resolved: 'green', damaged: 'red' }
 const MAX_ACTIVE_REPORTS = 6
+const POLL_MS = 15000
 
 export default function MapView() {
+  const navigate = useNavigate()
+  const usuario = JSON.parse(localStorage.getItem('usuario') || 'null')
   const { reports } = useReports()
-  const { position, onPointerDown, onPointerMove, onPointerUp } = useDraggableBackground()
+  const { offset, containerRef, imageRef, onPointerDown, onPointerMove, onPointerUp } = useDraggableMap()
   const [statusDraft, setStatusDraft] = useState([])
   const [statusFilter, setStatusFilter] = useState([])
+  const [edificios, setEdificios] = useState([])
+
+  const token = localStorage.getItem('token')
+  const API = import.meta.env.VITE_API_URL
+  const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+
+  useEffect(() => {
+    if (!token) { navigate('/login'); return }
+    let activo = true
+    const fetchMapa = async () => {
+      try {
+        const res = await fetch(`${API}/api/reportes/mapa`, { headers })
+        if (!res.ok) return
+        const data = await res.json()
+        if (activo) setEdificios(Array.isArray(data) ? data : [])
+      } catch {
+        // el proximo poll reintenta
+      }
+    }
+    queueMicrotask(fetchMapa)
+    const interval = setInterval(fetchMapa, POLL_MS)
+    return () => { activo = false; clearInterval(interval) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const toggleStatus = (type) => {
     setStatusDraft((prev) => (prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]))
@@ -30,6 +58,8 @@ export default function MapView() {
     ? activeReports
     : activeReports.filter((r) => statusFilter.includes(r.statusType))
   ).slice(0, MAX_ACTIVE_REPORTS)
+
+  const edificiosConAlerta = edificios.filter((e) => e.estatus !== 'disponible').length
 
   return (
     <div className="map-app">
@@ -43,7 +73,7 @@ export default function MapView() {
           <Link to="/events" className="nav-item">Eventos</Link>
         </nav>
         <div className="right">
-          <div className="username">Diego A.</div>
+          <div className="username">{usuario?.nombre || 'Usuario'}</div>
           <div className="avatar" aria-hidden="true" />
         </div>
       </header>
@@ -69,15 +99,18 @@ export default function MapView() {
             <input placeholder="Buscar edificio o punto..." />
           </div>
 
-          <div className="map-canvas" role="img" aria-label="Mapa interactivo del campus">
+          <div className="map-canvas" ref={containerRef} role="img" aria-label="Mapa interactivo del campus">
             <div
-              className="map-bg"
-              style={{ backgroundImage: `url(${campusMap})`, backgroundPosition: `${position.x}% ${position.y}%` }}
+              className="map-layer"
+              style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
               onPointerLeave={onPointerUp}
-            />
+            >
+              <img ref={imageRef} src={campusMap} className="map-image" alt="" draggable={false} />
+              <EdificioMarcadores edificios={edificios} />
+            </div>
           </div>
 
           <div className="bottom-bar">
@@ -88,7 +121,7 @@ export default function MapView() {
               <span className="dot blue" /> En proceso
               <span className="dot red" /> Dañado
             </div>
-            <div className="stats">Total de puntos ecológicos: 18 &nbsp;|&nbsp; Reportes activos: {activeReports.length} &nbsp;|&nbsp; Resueltos hoy: 2</div>
+            <div className="stats">Edificios con alerta: {edificiosConAlerta} &nbsp;|&nbsp; Reportes activos: {activeReports.length}</div>
           </div>
         </main>
 

@@ -12,7 +12,8 @@ const statusMap = {
 
 const estatusPointMap = {
   disponible: { label: 'Disponible', statusClass: 'available' },
-  saturado: { label: 'Saturado', statusClass: 'full' },
+  pendiente: { label: 'Pendiente', statusClass: 'pending' },
+  en_proceso: { label: 'En proceso', statusClass: 'progress' },
   dañado: { label: 'Dañado', statusClass: 'damaged' },
 }
 
@@ -176,7 +177,7 @@ export default function AdminPanel() {
                 const s = estatusPointMap[p.estatus] || { label: p.estatus, statusClass: 'available' }
                 return (
                   <li key={p.id} className={`list-row ${s.statusClass}`}>
-                    <div className="list-title">{p.edificios?.letra} · {p.nombre}</div>
+                    <div className="list-title">Edificio {p.edificios?.letra}</div>
                     <span className={`pill ${s.statusClass}`}>{s.label}</span>
                   </li>
                 )
