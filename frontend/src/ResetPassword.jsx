@@ -1,24 +1,15 @@
-import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import './ForgotPassword.scss'
 
-function getRecoveryToken() {
-  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''))
-  const queryParams = new URLSearchParams(window.location.search)
-  return hashParams.get('access_token') || queryParams.get('access_token') || ''
-}
-
 export default function ResetPassword() {
+  const location = useLocation()
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
-  const [token, setToken] = useState('')
-
-  useEffect(() => {
-    queueMicrotask(() => setToken(getRecoveryToken()))
-  }, [])
+  const token = location.state?.token || ''
 
   const handleSubmit = async (event) => {
     event.preventDefault()
@@ -37,7 +28,7 @@ export default function ResetPassword() {
       return
     }
     if (!token) {
-      setError('Enlace de recuperación inválido o expirado. Solicita uno nuevo.')
+      setError('Sesión de recuperación inválida o expirada. Solicita un nuevo código.')
       return
     }
 

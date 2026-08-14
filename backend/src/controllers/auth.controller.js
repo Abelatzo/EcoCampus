@@ -31,15 +31,32 @@ export const forgotPassword = async (req, res) => {
     return res.status(400).json({ error: 'Email es requerido' })
   }
 
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${frontendUrl}/reset-password`
-  })
+  // No usamos redirectTo: el correo lleva el codigo OTP ({{ .Token }} en la
+  // plantilla de Supabase) en vez de un enlace, para evitar que un escaner
+  // de correo institucional (Safe Links, etc.) consuma el enlace de un solo
+  // uso antes de que el usuario lo abra.
+  const { error } = await supabase.auth.resetPasswordForEmail(email)
 
   // No revelar si el correo existe o no en el sistema
   if (error) console.error('Error en resetPasswordForEmail:', error.message)
 
-  res.json({ message: 'Si el correo existe en nuestro sistema, recibirás un enlace de recuperación' })
+  res.json({ message: 'Si el correo existe en nuestro sistema, recibirás un código de recuperación' })
+}
+
+export const verifyResetCode = async (req, res) => {
+  const { email, code } = req.body
+
+  if (!email || !code) {
+    return res.status(400).json({ error: 'Correo y código son requeridos' })
+  }
+
+  const { data, error } = await supabase.auth.verifyOtp({ email, token: code, type: 'recovery' })
+
+  if (error || !data.session) {
+    return res.status(400).json({ error: 'Código inválido o expirado' })
+  }
+
+  res.json({ token: data.session.access_token })
 }
 
 export const resetPassword = async (req, res) => {
