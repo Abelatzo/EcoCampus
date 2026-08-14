@@ -15,7 +15,11 @@ export const registro = async (req, res) => {
     .from('usuarios')
     .insert({ id: data.user.id, nombre, email, rol: 'estudiante' })
 
-  if (errorInsert) return res.status(500).json({ error: errorInsert.message })
+  if (errorInsert) {
+    // Revertir el usuario de Auth para no dejarlo huerfano sin fila en usuarios
+    await supabase.auth.admin.deleteUser(data.user.id)
+    return res.status(500).json({ error: errorInsert.message })
+  }
 
   res.status(201).json({ message: 'Usuario registrado correctamente' })
 }

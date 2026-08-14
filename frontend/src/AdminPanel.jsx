@@ -34,11 +34,6 @@ export default function AdminPanel() {
     'Content-Type': 'application/json'
   }
 
-  useEffect(() => {
-    if (!token) { navigate('/login'); return }
-    fetchAll()
-  }, [])
-
   const fetchAll = async () => {
     try {
       const [statsRes, reportesRes, botesRes, usuariosRes, eventosRes] = await Promise.all([
@@ -66,6 +61,12 @@ export default function AdminPanel() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (!token) { navigate('/login'); return }
+    queueMicrotask(fetchAll)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const barChart = stats ? [
     { label: 'Pendiente', value: stats.pendientes || 0, color: 'orange' },
