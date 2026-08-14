@@ -35,7 +35,7 @@ function mapEvento(e) {
 export default function Events() {
   const usuario = JSON.parse(sessionStorage.getItem('usuario') || 'null')
   const navigate = useNavigate()
-  const token = localStorage.getItem('token')
+  const token = sessionStorage.getItem('token')
   const API = import.meta.env.VITE_API_URL
   const headers = {
     'Authorization': `Bearer ${token}`,
