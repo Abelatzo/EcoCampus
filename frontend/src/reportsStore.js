@@ -17,7 +17,7 @@ export const TYPE_TO_ESTATUS = Object.fromEntries(
   Object.entries(ESTATUS_MAP).map(([estatus, v]) => [v.type, estatus])
 )
 
-function mapReporte(r, currentEmail) {
+function mapReporte(r, currentUserId) {
   const estado = ESTATUS_MAP[r.estatus] || { label: r.estatus, type: 'pending' }
   const letra = r.edificios?.letra
   return {
@@ -30,7 +30,7 @@ function mapReporte(r, currentEmail) {
     status: estado.label,
     statusType: estado.type,
     author: r.usuarios?.nombre || 'Desconocido',
-    isMine: currentEmail ? r.usuarios?.email === currentEmail : false,
+    isMine: currentUserId ? r.usuario_id === currentUserId : false,
     description: r.descripcion || 'Sin descripción adicional.',
     time: r.created_at
       ? new Date(r.created_at).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })
@@ -65,7 +65,7 @@ export function useReportsState() {
         throw new Error(err.error || `Error ${res.status}`)
       }
       const data = await res.json()
-      setReports(Array.isArray(data) ? data.map((r) => mapReporte(r, usuario?.email)) : [])
+      setReports(Array.isArray(data) ? data.map((r) => mapReporte(r, usuario?.id)) : [])
     } catch (err) {
       setErrorMsg('No se pudieron cargar los reportes: ' + err.message)
     } finally {

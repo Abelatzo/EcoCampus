@@ -118,6 +118,26 @@
 .pill.in-progress{background:rgba(42,133,255,0.12); color:var(--pill-progress)}
 .pill.resolved{background:rgba(61,139,61,0.12); color:var(--pill-resolved)}
 .pill.damaged{background:rgba(217,54,46,0.12); color:var(--pill-damaged)}
+.tags-row{display:flex; align-items:center; gap:3px; flex-wrap:wrap; line-height:1}
+.pill.author{background:rgba(0,0,0,0.05); color:#5c6b5c; font-weight:600}
+.state-change{display:flex; align-items:center; gap:4px; flex-wrap:wrap; margin-top:2px}
+.state-change-label{font-size:8px; font-weight:700; color:#555; white-space:nowrap; flex-shrink:0}
+.state-change-options{display:flex; gap:2px; flex-wrap:wrap}
+.state-btn{
+  padding:2px 6px;
+  border-radius:999px;
+  border:1px solid rgba(0,0,0,0.1);
+  background:#fff;
+  color:#666;
+  font-size:8px;
+  font-weight:700;
+  cursor:pointer;
+  white-space:nowrap;
+}
+.state-btn.pending.active{background:rgba(245,166,35,0.12); border-color:var(--pill-pending); color:var(--pill-pending)}
+.state-btn.in-progress.active{background:rgba(42,133,255,0.12); border-color:var(--pill-progress); color:var(--pill-progress)}
+.state-btn.resolved.active{background:rgba(61,139,61,0.12); border-color:var(--pill-resolved); color:var(--pill-resolved)}
+.state-btn.damaged.active{background:rgba(217,54,46,0.12); border-color:var(--pill-damaged); color:var(--pill-damaged)}
 .description{
   margin:0;
   color:var(--muted);

@@ -17,6 +17,23 @@ const estatusPointMap = {
   dañado: { label: 'Dañado', statusClass: 'damaged' },
 }
 
+const PERIODOS = [
+  { value: 'semana', label: 'Última semana' },
+  { value: 'mes', label: 'Último mes' },
+  { value: 'anio', label: 'Último año' },
+  { value: 'historico', label: 'Histórico' },
+]
+
+// Fecha ISO de inicio del periodo (null = sin limite, historico)
+function desdePeriodo(periodo) {
+  const ahora = new Date()
+  if (periodo === 'semana') ahora.setDate(ahora.getDate() - 7)
+  else if (periodo === 'mes') ahora.setMonth(ahora.getMonth() - 1)
+  else if (periodo === 'anio') ahora.setFullYear(ahora.getFullYear() - 1)
+  else return null
+  return ahora.toISOString()
+}
+
 export default function AdminPanel() {
   const navigate = useNavigate()
   const token = sessionStorage.getItem('token')
@@ -28,6 +45,7 @@ export default function AdminPanel() {
   const [points, setPoints] = useState([])
   const [eventos, setEventos] = useState([])
   const [loading, setLoading] = useState(true)
+  const [periodo, setPeriodo] = useState('mes')
 
   const API = import.meta.env.VITE_API_URL
 
@@ -37,10 +55,19 @@ export default function AdminPanel() {
   }
 
   const fetchAll = async () => {
+    setLoading(true)
     try {
+      const desde = desdePeriodo(periodo)
+      const reportesUrl = new URL(`${API}/api/admin/reportes`)
+      const statsUrl = new URL(`${API}/api/admin/estadisticas`)
+      if (desde) {
+        reportesUrl.searchParams.set('desde', desde)
+        statsUrl.searchParams.set('desde', desde)
+      }
+
       const [statsRes, reportesRes, botesRes, usuariosRes, eventosRes] = await Promise.all([
-        fetch(`${API}/api/admin/estadisticas`, { headers }),
-        fetch(`${API}/api/admin/reportes`, { headers }),
+        fetch(statsUrl, { headers }),
+        fetch(reportesUrl, { headers }),
         fetch(`${API}/api/admin/bote-mallas`, { headers }),
         fetch(`${API}/api/usuarios`, { headers }),
         fetch(`${API}/api/eventos`, { headers }),
@@ -70,7 +97,7 @@ export default function AdminPanel() {
     const interval = setInterval(fetchAll, 15000)
     return () => clearInterval(interval)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [periodo])
 
   const barChart = stats ? [
     { label: 'Pendiente', value: stats.pendientes || 0, color: 'orange' },
@@ -117,8 +144,15 @@ export default function AdminPanel() {
 
       <div className="page-content">
         <div className="page-header">
-          <h2>Panel Administrativo</h2>
-          <p className="subtitle">Resumen general del sistema EcoCampus — UTCJ</p>
+          <div>
+            <h2>Panel Administrativo</h2>
+            <p className="subtitle">Resumen general del sistema EcoCampus — UTCJ</p>
+          </div>
+          <select className="period-select" value={periodo} onChange={(e) => setPeriodo(e.target.value)}>
+            {PERIODOS.map((p) => (
+              <option key={p.value} value={p.value}>{p.label}</option>
+            ))}
+          </select>
         </div>
 
         <div className="stats-grid">
@@ -136,7 +170,7 @@ export default function AdminPanel() {
         <div className="mid-grid">
           <div className="panel-card chart-card">
             <h3>Reportes por estado</h3>
-            <p className="card-subtitle">Últimos 30 días</p>
+            <p className="card-subtitle">{PERIODOS.find((p) => p.value === periodo)?.label}</p>
             <div className="bar-chart">
               {barChart.map((b) => (
                 <div key={b.label} className="bar-col">
