@@ -75,8 +75,11 @@ export function useReportsState() {
 
   useEffect(() => {
     queueMicrotask(fetchReportes)
+    // token identifica la sesion: si cambia (login/logout/cambio de rol sin
+    // recargar la app), hay que volver a pedir los reportes con el endpoint
+    // y usuario correctos -- si no, se queda con los datos de la sesion anterior.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [token])
 
   const subirFoto = async (image) => {
     const form = new FormData()

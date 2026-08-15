@@ -83,7 +83,7 @@ export default function AdminPanel() {
       setStats(statsData)
       setTotalUsuarios(Array.isArray(usuariosData) ? usuariosData.length : 0)
       setLastReports(Array.isArray(reportesData) ? reportesData.slice(0, 5) : [])
-      setPoints(Array.isArray(botesData) ? botesData.slice(0, 5) : [])
+      setPoints(Array.isArray(botesData) ? botesData : [])
       setEventos(Array.isArray(eventosData) ? eventosData.slice(0, 4) : [])
     } catch (err) {
       console.error('Error cargando panel:', err)

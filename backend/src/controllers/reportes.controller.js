@@ -202,7 +202,10 @@ export const actualizarEstatus = async (req, res) => {
   }
 
   if (!actualizado) {
-    console.error(`actualizarEstatus fallo para reporte ${id}:`, errorFinal?.message)
+    console.error(
+      `actualizarEstatus fallo para reporte ${id} (usuario ${req.user.id}, estatus destino '${estatus}'):`,
+      errorFinal?.code, errorFinal?.message, errorFinal?.details, errorFinal?.hint
+    )
     return res.status(500).json({ error: 'No se pudo actualizar el estatus, intenta de nuevo en unos segundos' })
   }
 
