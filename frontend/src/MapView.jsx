@@ -4,6 +4,7 @@ import campusMap from './assets/ImagenMapa.jpeg'
 import { useDraggableMap } from './useDraggableMap'
 import { useReports } from './reportsStore'
 import EdificioMarcadores from './EdificioMarcadores'
+import { cerrarSesion } from './session'
 import './MapView.scss'
 
 const reportStates = [
@@ -25,6 +26,7 @@ export default function MapView() {
   const [statusDraft, setStatusDraft] = useState([])
   const [statusFilter, setStatusFilter] = useState([])
   const [edificios, setEdificios] = useState([])
+  const [searchTerm, setSearchTerm] = useState('')
 
   const token = sessionStorage.getItem('token')
   const API = import.meta.env.VITE_API_URL
@@ -53,11 +55,23 @@ export default function MapView() {
     setStatusDraft((prev) => (prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]))
   }
 
+  const normalizedSearch = searchTerm.trim().toLowerCase()
   const activeReports = reports.filter((r) => r.statusType !== 'resolved')
   const filteredReports = (statusFilter.length === 0
     ? activeReports
     : activeReports.filter((r) => statusFilter.includes(r.statusType))
+  ).filter((r) =>
+    normalizedSearch === '' ||
+    r.title.toLowerCase().includes(normalizedSearch) ||
+    (r.building || '').toLowerCase().includes(normalizedSearch)
   ).slice(0, MAX_ACTIVE_REPORTS)
+
+  const edificiosVisibles = normalizedSearch === ''
+    ? edificios
+    : edificios.filter((e) =>
+        (e.letra || '').toLowerCase().includes(normalizedSearch) ||
+        e.reportes.some((r) => r.titulo.toLowerCase().includes(normalizedSearch))
+      )
 
   const edificiosConAlerta = edificios.filter((e) => e.estatus !== 'disponible').length
 
@@ -72,10 +86,10 @@ export default function MapView() {
           <Link to="/reports" className="nav-item">Reportes</Link>
           <Link to="/events" className="nav-item">Eventos</Link>
         </nav>
-        <div className="right">
+        <button className="right user-menu" onClick={() => cerrarSesion(navigate)} title="Cerrar sesión">
           <div className="username">{usuario?.nombre || 'Usuario'}</div>
           <div className="avatar" aria-hidden="true" />
-        </div>
+        </button>
       </header>
 
       <div className="container">
@@ -96,7 +110,11 @@ export default function MapView() {
 
         <main className="map-area">
           <div className="map-search">
-            <input placeholder="Buscar edificio o punto..." />
+            <input
+              placeholder="Buscar edificio o punto..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
 
           <div className="map-canvas" ref={containerRef} role="img" aria-label="Mapa interactivo del campus">
@@ -109,7 +127,7 @@ export default function MapView() {
               onPointerLeave={onPointerUp}
             >
               <img ref={imageRef} src={campusMap} className="map-image" alt="" draggable={false} />
-              <EdificioMarcadores edificios={edificios} />
+              <EdificioMarcadores edificios={edificiosVisibles} />
             </div>
           </div>
 

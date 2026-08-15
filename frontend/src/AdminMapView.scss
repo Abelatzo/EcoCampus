@@ -1,5 +1,5 @@
 @use './_variables';
-
+@use './_edificioMarker' as *;
 
 .topbar .logo{gap:8px}
 
@@ -15,6 +15,11 @@
   flex-shrink:0;
 }
 .topbar .admin-avatar{background:#f5a623}
+.topbar .right{display:flex; align-items:center; gap:10px}
+.topbar .username{opacity:0.95; font-size:13px}
+.topbar .avatar{width:24px; height:24px; background:rgba(255,255,255,0.22); border-radius:50%}
+.topbar .user-menu{border:none; background:transparent; color:inherit; font:inherit; cursor:pointer; border-radius:20px; padding:4px 8px; transition:background .15s}
+.topbar .user-menu:hover{background:rgba(255,255,255,0.12)}
 
 .map-app.admin .topbar .nav{gap:18px}
 
@@ -49,26 +54,6 @@
 .mark-panel .form-field{margin-bottom:0}
 .mark-hint{font-size:10.5px; color:var(--muted); margin:6px 0 0}
 .mark-msg{font-size:10.5px; color:var(--green-dark); font-weight:600; margin:6px 0 0}
-
-.posicion-marker{
-  position:absolute;
-  transform:translate(-50%,-50%);
-  width:20px;
-  height:20px;
-  border-radius:50%;
-  background:#fff;
-  border:2px solid var(--green);
-  color:var(--green-dark);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:9px;
-  font-weight:800;
-  cursor:default;
-  z-index:2;
-  box-shadow:0 1px 4px rgba(0,0,0,0.25);
-}
-
 
 .popup.edit{
   border-top:3px solid #f5a623;

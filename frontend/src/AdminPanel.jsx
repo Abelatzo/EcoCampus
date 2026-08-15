@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useNavigate } from 'react-router-dom'
+import { cerrarSesion } from './session'
 import './AdminPanel.scss'
 
 const statusMap = {
@@ -136,10 +137,10 @@ export default function AdminPanel() {
           <Link to="/admin/users" className="nav-item">Usuarios</Link>
           <Link to="/admin/panel" className="nav-item active">Panel</Link>
         </nav>
-        <div className="right">
+        <button className="right user-menu" onClick={() => cerrarSesion(navigate)} title="Cerrar sesión">
           <div className="username">{usuario?.nombre || 'Admin'}</div>
           <div className="avatar admin-avatar" aria-hidden="true" />
-        </div>
+        </button>
       </header>
 
       <div className="page-content">
