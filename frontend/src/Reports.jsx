@@ -23,7 +23,6 @@ export default function Reports() {
   const navigate = useNavigate()
   const usuario = JSON.parse(sessionStorage.getItem('usuario') || 'null')
   const { reports, loading, errorMsg, addReport, updateReport } = useReports()
-  const myReports = reports.filter((r) => r.isMine)
 
   useEffect(() => {
     if (!sessionStorage.getItem('token')) navigate('/login')
@@ -62,7 +61,7 @@ export default function Reports() {
     setPage(1)
   }
 
-  const filteredReportList = myReports.filter((r) =>
+  const filteredReportList = reports.filter((r) =>
     (statusFilter.length === 0 || statusFilter.includes(r.statusType)) &&
     (buildingFilter.length === 0 || buildingFilter.includes(r.building))
   )
@@ -94,6 +93,10 @@ export default function Reports() {
       image: newImage,
     })
     closeNewReportModal()
+  }
+
+  const changeStatus = (report, state) => {
+    updateReport(report.id, { statusType: state.type })
   }
 
   const openEdit = (report) => {
@@ -157,14 +160,14 @@ export default function Reports() {
         <main className="main-content">
           <div className="header-row">
             <div>
-              <h2>Mis Reportes</h2>
-              <p className="count">{filteredReportList.length} reportes encontrados</p>
+              <h2>Reportes</h2>
+              <p className="count">{filteredReportList.length} reportes activos — cualquiera puede actualizar el estado</p>
             </div>
             <button className="btn new-report" onClick={() => setShowModal(true)}>+ Nuevo Reporte</button>
           </div>
 
           <div className="search-bar">
-            <input placeholder="Buscar en tus reportes..." />
+            <input placeholder="Buscar en los reportes..." />
           </div>
 
           <div className="report-list">
@@ -185,8 +188,27 @@ export default function Reports() {
                       </div>
                       <span className="report-time">{report.time}</span>
                     </div>
-                    <span className={`pill ${report.statusType}`}>{report.status}</span>
+                    <div className="tags-row">
+                      <span className={`pill ${report.statusType}`}>{report.status}</span>
+                      <span className="pill author">👤 {report.isMine ? 'Tú' : report.author}</span>
+                    </div>
                     <p className="description">{report.description}</p>
+
+                    <div className="state-change">
+                      <span className="state-change-label">Cambiar estado:</span>
+                      <div className="state-change-options">
+                        {reportStates.map((s) => (
+                          <button
+                            key={s.type}
+                            className={`state-btn ${s.type} ${report.statusType === s.type ? 'active' : ''}`}
+                            onClick={() => changeStatus(report, s)}
+                          >
+                            {s.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
                     <div className="card-actions">
                       <div className="action-buttons">
                         <button className="btn outline" onClick={() => setDetailReport(report)}>Ver detalle</button>

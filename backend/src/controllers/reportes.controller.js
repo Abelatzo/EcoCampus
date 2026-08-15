@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto'
 import { fileTypeFromBuffer } from 'file-type'
-import { supabase, supabaseAsUser } from '../config/supabase.js'
+import { supabase } from '../config/supabase.js'
 
 const MIME_A_EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }
 
@@ -131,11 +131,12 @@ export const estadoMapa = async (req, res) => {
 }
 
 // GET /api/reportes — reportes activos (pendiente o en_proceso)
+// Se muestran los de TODOS los usuarios (no solo el propio) para que
+// cualquiera pueda avanzar el estatus -- por eso se usa el cliente con
+// service role: la tabla usuarios tiene RLS que solo deja leer la fila
+// propia, y aqui necesitamos el nombre (no el email) de cada autor.
 export const obtenerActivos = async (req, res) => {
-  const token = req.headers.authorization?.split(' ')[1]
-  const client = supabaseAsUser(token)
-
-  const { data, error } = await client
+  const { data, error } = await supabase
     .from('reportes')
     .select(`
       id,
@@ -145,8 +146,9 @@ export const obtenerActivos = async (req, res) => {
       foto_url,
       estatus,
       created_at,
+      usuario_id,
       edificios (letra),
-      usuarios (nombre, email)
+      usuarios (nombre)
     `)
     .in('estatus', ['pendiente', 'en_proceso'])
     .order('created_at', { ascending: false })
@@ -211,6 +213,10 @@ export const actualizarEstatus = async (req, res) => {
     return res.status(400).json({ error: `estatus debe ser uno de: ${estatusValidos.join(', ')}` })
   }
 
+  // El estatus es un proceso colaborativo: cualquier usuario autenticado
+  // puede avanzarlo (pendiente -> en_proceso -> resuelto), no solo quien
+  // creo el reporte -- asi otros estudiantes que ven el bote atendido o
+  // resuelto pueden actualizarlo sin depender del autor original.
   const { data: reporte, error: errorBuscar } = await supabase
     .from('reportes')
     .select('id, estatus, usuario_id, edificio_id')
@@ -219,15 +225,6 @@ export const actualizarEstatus = async (req, res) => {
 
   if (errorBuscar || !reporte) {
     return res.status(404).json({ error: 'Reporte no encontrado' })
-  }
-
-  if (req.user.rol !== 'administrador') {
-    if (reporte.usuario_id !== req.user.id) {
-      return res.status(403).json({ error: 'No puedes modificar reportes de otros usuarios' })
-    }
-    if (reporte.estatus !== 'pendiente') {
-      return res.status(403).json({ error: 'Solo puedes modificar reportes en estado pendiente' })
-    }
   }
 
   const { data, error } = await supabase

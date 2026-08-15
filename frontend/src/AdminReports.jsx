@@ -19,10 +19,81 @@ const buildingLetters = buildings.map((b) => b.replace('Edificio ', ''))
 
 const PAGE_SIZE = 4
 
+const PERIODOS = [
+  { value: 'semana', label: 'Última semana' },
+  { value: 'mes', label: 'Último mes' },
+  { value: 'anio', label: 'Último año' },
+  { value: 'historico', label: 'Histórico' },
+]
+
+// Fecha ISO de inicio del periodo (null = sin limite, historico)
+function desdePeriodo(periodo) {
+  const ahora = new Date()
+  if (periodo === 'semana') ahora.setDate(ahora.getDate() - 7)
+  else if (periodo === 'mes') ahora.setMonth(ahora.getMonth() - 1)
+  else if (periodo === 'anio') ahora.setFullYear(ahora.getFullYear() - 1)
+  else return null
+  return ahora.toISOString()
+}
+
+function csvEscape(valor) {
+  const texto = valor === null || valor === undefined ? '' : String(valor)
+  return /[",\n]/.test(texto) ? `"${texto.replace(/"/g, '""')}"` : texto
+}
+
+function reportesACSV(reportes) {
+  const columnas = ['Título', 'Edificio', 'Ubicación', 'Descripción', 'Estado', 'Reportado por', 'Correo', 'Creado', 'Última actualización']
+  const filas = reportes.map((r) => [
+    r.titulo,
+    r.edificios?.letra || '',
+    r.ubicacion || '',
+    r.descripcion || '',
+    r.estatus,
+    r.usuarios?.nombre || '',
+    r.usuarios?.email || '',
+    r.created_at ? new Date(r.created_at).toLocaleString('es-MX') : '',
+    r.updated_at ? new Date(r.updated_at).toLocaleString('es-MX') : '',
+  ])
+  return [columnas, ...filas].map((fila) => fila.map(csvEscape).join(',')).join('\r\n')
+}
+
 export default function ReportsAdmin() {
   const navigate = useNavigate()
   const usuario = JSON.parse(sessionStorage.getItem('usuario') || 'null')
   const { reports, loading, errorMsg, addReport, updateReport, deleteReport, deleteReports } = useReports()
+  const token = sessionStorage.getItem('token')
+  const API = import.meta.env.VITE_API_URL
+
+  const [exportPeriodo, setExportPeriodo] = useState('semana')
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState('')
+
+  const exportarCSV = async () => {
+    setExporting(true)
+    setExportError('')
+    try {
+      const desde = desdePeriodo(exportPeriodo)
+      const url = new URL(`${API}/api/admin/reportes`)
+      if (desde) url.searchParams.set('desde', desde)
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || `Error ${res.status}`)
+      }
+      const data = await res.json()
+      const csv = '﻿' + reportesACSV(Array.isArray(data) ? data : [])
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+      const enlace = document.createElement('a')
+      enlace.href = URL.createObjectURL(blob)
+      enlace.download = `reportes-ecocampus-${exportPeriodo}-${new Date().toISOString().slice(0, 10)}.csv`
+      enlace.click()
+      URL.revokeObjectURL(enlace.href)
+    } catch (err) {
+      setExportError('No se pudo exportar: ' + err.message)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   useEffect(() => {
     if (!sessionStorage.getItem('token')) navigate('/login')
@@ -186,7 +257,19 @@ export default function ReportsAdmin() {
 
           <div className="admin-tools">
             <div className="admin-tools-title">⚙ Admin</div>
-            <button className="btn tool export">Exportar reportes (.csv)</button>
+            <select
+              className="export-period"
+              value={exportPeriodo}
+              onChange={(e) => setExportPeriodo(e.target.value)}
+            >
+              {PERIODOS.map((p) => (
+                <option key={p.value} value={p.value}>{p.label}</option>
+              ))}
+            </select>
+            <button className="btn tool export" onClick={exportarCSV} disabled={exporting}>
+              {exporting ? 'Exportando...' : 'Exportar reportes (.csv)'}
+            </button>
+            {exportError && <p className="export-error">{exportError}</p>}
             <button
               className="btn tool delete"
               onClick={() => selectedIds.length > 0 && setBulkDeleteConfirm(true)}
