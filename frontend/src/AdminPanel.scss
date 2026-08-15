@@ -146,6 +146,7 @@ body{overflow-y:auto}
 .bar-label{font-size:8px; color:var(--muted); margin-top:5px; white-space:nowrap}
 
 .list{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:4px}
+.list.simple{max-height:190px; overflow-y:auto; padding-right:2px}
 .list-row{
   display:flex;
   justify-content:space-between;
