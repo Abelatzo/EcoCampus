@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useReports } from './reportsStore'
+import { cerrarSesion } from './session'
 import './Reports.scss'
 
 const buildings = [
@@ -45,6 +46,7 @@ export default function Reports() {
   const [statusFilter, setStatusFilter] = useState([])
   const [buildingDraft, setBuildingDraft] = useState([])
   const [buildingFilter, setBuildingFilter] = useState([])
+  const [searchTerm, setSearchTerm] = useState('')
   const [page, setPage] = useState(1)
 
   const toggleStatus = (type) => {
@@ -61,9 +63,15 @@ export default function Reports() {
     setPage(1)
   }
 
+  const normalizedSearch = searchTerm.trim().toLowerCase()
   const filteredReportList = reports.filter((r) =>
     (statusFilter.length === 0 || statusFilter.includes(r.statusType)) &&
-    (buildingFilter.length === 0 || buildingFilter.includes(r.building))
+    (buildingFilter.length === 0 || buildingFilter.includes(r.building)) &&
+    (normalizedSearch === '' ||
+      r.title.toLowerCase().includes(normalizedSearch) ||
+      r.description.toLowerCase().includes(normalizedSearch) ||
+      r.location.toLowerCase().includes(normalizedSearch) ||
+      r.author.toLowerCase().includes(normalizedSearch))
   )
 
   const totalPages = Math.max(1, Math.ceil(filteredReportList.length / PAGE_SIZE))
@@ -119,10 +127,10 @@ export default function Reports() {
           <Link to="/reports" className="nav-item active">Reportes</Link>
           <Link to="/events" className="nav-item">Eventos</Link>
         </nav>
-        <div className="right">
+        <button className="right user-menu" onClick={() => cerrarSesion(navigate)} title="Cerrar sesión">
           <div className="username">{usuario?.nombre || 'Usuario'}</div>
           <div className="avatar" aria-hidden="true" />
-        </div>
+        </button>
       </header>
 
       {errorMsg && <p className="no-results" style={{ color: 'var(--red, #d9362e)', padding: '8px 24px' }}>{errorMsg}</p>}
@@ -167,7 +175,11 @@ export default function Reports() {
           </div>
 
           <div className="search-bar">
-            <input placeholder="Buscar en los reportes..." />
+            <input
+              placeholder="Buscar en los reportes..."
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setPage(1) }}
+            />
           </div>
 
           <div className="report-list">

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { cerrarSesion } from './session'
 import './AdminUsers.scss'
 
 const PAGE_SIZE = 8
@@ -162,10 +163,10 @@ export default function AdminUsers() {
           <Link to="/admin/users" className="nav-item active">Usuarios</Link>
           <Link to="/admin/panel" className="nav-item">Panel</Link>
         </nav>
-        <div className="right">
+        <button className="right user-menu" onClick={() => cerrarSesion(navigate)} title="Cerrar sesión">
           <div className="username">{usuario?.nombre || 'Admin'}</div>
           <div className="avatar admin-avatar" aria-hidden="true" />
-        </div>
+        </button>
       </header>
 
       {errorMsg && <p className="no-results" style={{ color: 'var(--red, #d9362e)', padding: '8px 24px' }}>{errorMsg}</p>}

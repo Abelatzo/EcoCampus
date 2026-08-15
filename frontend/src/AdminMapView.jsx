@@ -4,6 +4,7 @@ import campusMap from './assets/ImagenMapa.jpeg'
 import { useDraggableMap } from './useDraggableMap'
 import { useReports } from './reportsStore'
 import EdificioMarcadores from './EdificioMarcadores'
+import { cerrarSesion } from './session'
 import './AdminMapView.scss'
 
 const reportStates = [
@@ -33,6 +34,7 @@ export default function AdminMapView() {
 
   const [marcando, setMarcando] = useState(false)
   const [edificioSeleccionado, setEdificioSeleccionado] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
 
   const token = sessionStorage.getItem('token')
   const API = import.meta.env.VITE_API_URL
@@ -74,11 +76,25 @@ export default function AdminMapView() {
     setStatusDraft((prev) => (prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]))
   }
 
+  const normalizedSearch = searchTerm.trim().toLowerCase()
   const activeReports = reports.filter((r) => r.statusType !== 'resolved')
   const filteredReports = (statusFilter.length === 0
     ? activeReports
     : activeReports.filter((r) => statusFilter.includes(r.statusType))
+  ).filter((r) =>
+    normalizedSearch === '' ||
+    r.title.toLowerCase().includes(normalizedSearch) ||
+    (r.building || '').toLowerCase().includes(normalizedSearch)
   ).slice(0, MAX_ACTIVE_REPORTS)
+
+  // En modo "marcando" no se filtra por busqueda: el admin necesita ver
+  // todos los edificios ya marcados para no volver a marcar uno encima.
+  const mapaDataVisible = marcando || normalizedSearch === ''
+    ? mapaData
+    : mapaData.filter((e) =>
+        (e.letra || '').toLowerCase().includes(normalizedSearch) ||
+        e.reportes.some((r) => r.titulo.toLowerCase().includes(normalizedSearch))
+      )
 
   const toggleMarcando = () => {
     setMarcando((prev) => !prev)
@@ -107,6 +123,7 @@ export default function AdminMapView() {
       const letra = edificios.find((ed) => ed.id === edificioSeleccionado)?.letra
       setMensaje(`Edificio ${letra} marcado ✓`)
       setEdificioSeleccionado('')
+      fetchMapa().catch(() => {})
     } catch (err) {
       setMensaje('')
       setErrorMsg('No se pudo guardar la posición: ' + err.message)
@@ -131,10 +148,10 @@ export default function AdminMapView() {
           <Link to="/admin/users" className="nav-item">Usuarios</Link>
           <Link to="/admin/panel" className="nav-item">Panel</Link>
         </nav>
-        <div className="right">
+        <button className="right user-menu" onClick={() => cerrarSesion(navigate)} title="Cerrar sesión">
           <div className="username">{usuario?.nombre || 'Admin'}</div>
           <div className="avatar admin-avatar" aria-hidden="true" />
-        </div>
+        </button>
       </header>
 
       {errorMsg && <p className="no-results" style={{ color: 'var(--red, #d9362e)', padding: '8px 24px' }}>{errorMsg}</p>}
@@ -185,7 +202,11 @@ export default function AdminMapView() {
 
         <main className="map-area">
           <div className="map-search">
-            <input placeholder="Buscar edificio o punto..." />
+            <input
+              placeholder="Buscar edificio o punto..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
 
           <div className="map-canvas" ref={containerRef} role="img" aria-label="Mapa interactivo del campus">
@@ -199,21 +220,7 @@ export default function AdminMapView() {
               onClick={onMapLayerClick}
             >
               <img ref={imageRef} src={campusMap} className="map-image" alt="" draggable={false} />
-
-              {edificios.filter((e) => e.pos_x != null && e.pos_y != null).map((e) => (
-                <div
-                  key={e.id}
-                  className="posicion-marker"
-                  style={{ left: `${e.pos_x}%`, top: `${e.pos_y}%` }}
-                  title={`Edificio ${e.letra} ya marcado`}
-                  onPointerDown={(ev) => ev.stopPropagation()}
-                  onClick={(ev) => ev.stopPropagation()}
-                >
-                  {e.letra}
-                </div>
-              ))}
-
-              <EdificioMarcadores edificios={mapaData} />
+              <EdificioMarcadores edificios={mapaDataVisible} />
             </div>
           </div>
 

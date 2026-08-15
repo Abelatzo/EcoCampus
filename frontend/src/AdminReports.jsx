@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useReports, TYPE_TO_ESTATUS } from './reportsStore'
+import { cerrarSesion } from './session'
 import './AdminReports.scss'
 
 const states = [
@@ -118,6 +119,7 @@ export default function ReportsAdmin() {
   const [statusFilter, setStatusFilter] = useState([])
   const [buildingDraft, setBuildingDraft] = useState([])
   const [buildingFilter, setBuildingFilter] = useState([])
+  const [searchTerm, setSearchTerm] = useState('')
   const [page, setPage] = useState(1)
 
   const [selectedIds, setSelectedIds] = useState([])
@@ -141,9 +143,14 @@ export default function ReportsAdmin() {
     setPage(1)
   }
 
+  const normalizedSearch = searchTerm.trim().toLowerCase()
   const filteredReportList = reports.filter((r) =>
     (statusFilter.length === 0 || statusFilter.includes(r.statusType)) &&
-    (buildingFilter.length === 0 || buildingFilter.includes(r.building))
+    (buildingFilter.length === 0 || buildingFilter.includes(r.building)) &&
+    (normalizedSearch === '' ||
+      r.title.toLowerCase().includes(normalizedSearch) ||
+      (r.building || '').toLowerCase().includes(normalizedSearch) ||
+      r.author.toLowerCase().includes(normalizedSearch))
   )
 
   const totalPages = Math.max(1, Math.ceil(filteredReportList.length / PAGE_SIZE))
@@ -218,10 +225,10 @@ export default function ReportsAdmin() {
           <Link to="/admin/users" className="nav-item">Usuarios</Link>
           <Link to="/admin/panel" className="nav-item">Panel</Link>
         </nav>
-        <div className="right">
+        <button className="right user-menu" onClick={() => cerrarSesion(navigate)} title="Cerrar sesión">
           <div className="username">{usuario?.nombre || 'Admin'}</div>
           <div className="avatar admin-avatar" aria-hidden="true" />
-        </div>
+        </button>
       </header>
 
       {errorMsg && <p className="no-results" style={{ color: 'var(--red, #d9362e)', padding: '8px 24px' }}>{errorMsg}</p>}
@@ -289,7 +296,11 @@ export default function ReportsAdmin() {
           </div>
 
           <div className="search-bar">
-            <input placeholder="Buscar por título, edificio o usuario..." />
+            <input
+              placeholder="Buscar por título, edificio o usuario..."
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setPage(1) }}
+            />
           </div>
 
           <div className="report-list">
