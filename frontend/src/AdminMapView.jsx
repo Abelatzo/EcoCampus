@@ -1,8 +1,10 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import campusMap from './assets/ImagenMapa.jpeg'
-import { useDraggableBackground } from './useDraggableBackground'
+import { useDraggableMap } from './useDraggableMap'
 import { useReports } from './reportsStore'
+import EdificioMarcadores from './EdificioMarcadores'
+import { cerrarSesion } from './session'
 import './AdminMapView.scss'
 
 const reportStates = [
@@ -13,104 +15,144 @@ const reportStates = [
 ]
 
 const statusDotClass = { pending: 'orange', 'in-progress': 'blue', resolved: 'green', damaged: 'red' }
+// El filtro de "Estado del reporte" usa los tipos de reportes (pending/in-progress/
+// resolved/damaged); el estado agregado del edificio (bote_mallas.estatus) usa otro
+// vocabulario (pendiente/en_proceso/disponible/dañado). Mapeo entre ambos para poder
+// filtrar los marcadores del mapa con el mismo checkbox.
+const FILTER_TYPE_TO_ESTATUS = { pending: 'pendiente', 'in-progress': 'en_proceso', resolved: 'disponible', damaged: 'dañado' }
 const MAX_ACTIVE_REPORTS = 6
-
-const buildingLetters = [
-  'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'Q',
-]
-
-const pointStates = [
-  { label: 'Disponible', type: 'resolved' },
-  { label: 'Pendiente', type: 'pending' },
-  { label: 'En proceso', type: 'in-progress' },
-  { label: 'Dañado', type: 'damaged' },
-]
-
-const initialPoints = [
-  { id: 1, name: 'Bote malla C3', building: 'C', status: 'Disponible', statusType: 'resolved' },
-]
+const POLL_MS = 15000
 
 export default function AdminMapView() {
+  const navigate = useNavigate()
+  const usuario = JSON.parse(sessionStorage.getItem('usuario') || 'null')
   const { reports } = useReports()
-  const { position, onPointerDown, onPointerMove, onPointerUp } = useDraggableBackground()
+  const { offset, containerRef, imageRef, onPointerDown, onPointerMove, onPointerUp, clientToImagePercent } = useDraggableMap()
   const [statusDraft, setStatusDraft] = useState([])
   const [statusFilter, setStatusFilter] = useState([])
 
-  const [points, setPoints] = useState(initialPoints)
+  const [mapaData, setMapaData] = useState([])
+  const [edificios, setEdificios] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [errorMsg, setErrorMsg] = useState('')
+  const [mensaje, setMensaje] = useState('')
 
-  const [editing, setEditing] = useState(false)
-  const [selectedPointId, setSelectedPointId] = useState(null)
-  const [editName, setEditName] = useState('')
-  const [editBuilding, setEditBuilding] = useState('')
-  const [editStatus, setEditStatus] = useState('resolved')
+  const [marcando, setMarcando] = useState(false)
+  const [edificioSeleccionado, setEdificioSeleccionado] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
 
-  const [showAddPoint, setShowAddPoint] = useState(false)
-  const [newPointName, setNewPointName] = useState('')
-  const [newPointBuilding, setNewPointBuilding] = useState(buildingLetters[0])
-  const [newPointStatus, setNewPointStatus] = useState('resolved')
+  const token = sessionStorage.getItem('token')
+  const API = import.meta.env.VITE_API_URL
+  const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
 
-  const [showDeletePoints, setShowDeletePoints] = useState(false)
-  const [pointToDelete, setPointToDelete] = useState(null)
+  const fetchEdificios = async () => {
+    const res = await fetch(`${API}/api/edificios`, { headers })
+    if (!res.ok) throw new Error('No se pudieron cargar los edificios')
+    setEdificios(await res.json())
+  }
+
+  const fetchMapa = async () => {
+    const res = await fetch(`${API}/api/reportes/mapa`, { headers })
+    if (!res.ok) throw new Error('No se pudo cargar el estado del mapa')
+    setMapaData(await res.json())
+  }
+
+  const cargarTodo = async () => {
+    setLoading(true)
+    setErrorMsg('')
+    try {
+      await Promise.all([fetchEdificios(), fetchMapa()])
+    } catch (err) {
+      setErrorMsg(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!token) { navigate('/login'); return }
+    queueMicrotask(cargarTodo)
+    const interval = setInterval(() => { fetchMapa().catch(() => {}) }, POLL_MS)
+    return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const toggleStatus = (type) => {
     setStatusDraft((prev) => (prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]))
   }
 
+  const normalizedSearch = searchTerm.trim().toLowerCase()
   const activeReports = reports.filter((r) => r.statusType !== 'resolved')
   const filteredReports = (statusFilter.length === 0
     ? activeReports
     : activeReports.filter((r) => statusFilter.includes(r.statusType))
+  ).filter((r) =>
+    normalizedSearch === '' ||
+    r.title.toLowerCase().includes(normalizedSearch) ||
+    (r.building || '').toLowerCase().includes(normalizedSearch)
   ).slice(0, MAX_ACTIVE_REPORTS)
 
-  const selectPointToEdit = (point) => {
-    setSelectedPointId(point.id)
-    setEditName(point.name)
-    setEditBuilding(point.building)
-    setEditStatus(point.statusType)
+  // En modo "marcando" no se filtra por busqueda ni estado: el admin
+  // necesita ver todos los edificios ya marcados para no volver a marcar
+  // uno encima.
+  // bote_mallas.estatus es un agregado (dañado > pendiente > en_proceso >
+  // disponible) del edificio completo, pero al filtrar el usuario espera ver
+  // el edificio si CUALQUIERA de sus reportes coincide con el filtro, no solo
+  // si el agregado (el peor caso) coincide -- ej: un edificio con un reporte
+  // pendiente y uno en_proceso muestra el agregado "pendiente", pero debe
+  // seguir apareciendo si se filtra por "en proceso".
+  const statusFilterEstatus = statusFilter.map((t) => FILTER_TYPE_TO_ESTATUS[t] || t)
+  const edificioCoincideFiltro = (e) =>
+    statusFilterEstatus.length === 0 ||
+    statusFilterEstatus.includes(e.estatus) ||
+    e.reportes.some((r) => statusFilterEstatus.includes(r.estatus))
+  const mapaDataVisible = marcando
+    ? mapaData
+    : mapaData
+        .filter(edificioCoincideFiltro)
+        .filter((e) =>
+          normalizedSearch === '' ||
+          (e.letra || '').toLowerCase().includes(normalizedSearch) ||
+          e.reportes.some((r) => r.titulo.toLowerCase().includes(normalizedSearch))
+        )
+
+  const toggleMarcando = () => {
+    setMarcando((prev) => !prev)
+    setEdificioSeleccionado('')
+    setMensaje('')
   }
 
-  const openEditPoints = () => {
-    if (points.length === 0) return
-    selectPointToEdit(points[0])
-    setEditing(true)
+  const onMapLayerClick = async (e) => {
+    if (!marcando || !edificioSeleccionado) return
+    const pos = clientToImagePercent(e.clientX, e.clientY)
+    if (!pos) return
+
+    setMensaje('Guardando posición...')
+    try {
+      const res = await fetch(`${API}/api/edificios/${edificioSeleccionado}/posicion`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ pos_x: pos.x, pos_y: pos.y }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || `Error ${res.status}`)
+      }
+      const actualizado = await res.json()
+      setEdificios((prev) => prev.map((ed) => (ed.id === actualizado.id ? actualizado : ed)))
+      const letra = edificios.find((ed) => ed.id === edificioSeleccionado)?.letra
+      setMensaje(`Edificio ${letra} marcado ✓`)
+      setEdificioSeleccionado('')
+      fetchMapa().catch(() => {})
+    } catch (err) {
+      setMensaje('')
+      setErrorMsg('No se pudo guardar la posición: ' + err.message)
+    }
   }
 
-  const saveEditedPoint = () => {
-    const state = pointStates.find((s) => s.type === editStatus)
-    setPoints((prev) => prev.map((p) => (
-      p.id === selectedPointId ? { ...p, name: editName, building: editBuilding, status: state.label, statusType: state.type } : p
-    )))
-    setEditing(false)
-  }
-
-  const resetAddPointForm = () => {
-    setNewPointName('')
-    setNewPointBuilding(buildingLetters[0])
-    setNewPointStatus('resolved')
-  }
-
-  const closeAddPoint = () => {
-    setShowAddPoint(false)
-    resetAddPointForm()
-  }
-
-  const createPoint = () => {
-    if (!newPointName.trim()) return
-    const state = pointStates.find((s) => s.type === newPointStatus)
-    setPoints((prev) => [...prev, {
-      id: Date.now(),
-      name: newPointName.trim(),
-      building: newPointBuilding,
-      status: state.label,
-      statusType: state.type,
-    }])
-    closeAddPoint()
-  }
-
-  const confirmDeletePoint = () => {
-    setPoints((prev) => prev.filter((p) => p.id !== pointToDelete.id))
-    setPointToDelete(null)
-  }
+  const edificiosOrdenados = [...edificios].sort((a, b) => a.letra.localeCompare(b.letra))
+  const marcadosCount = edificios.filter((e) => e.pos_x != null && e.pos_y != null).length
+  const edificiosConAlerta = mapaData.filter((e) => e.estatus !== 'disponible').length
 
   return (
     <div className="map-app admin">
@@ -126,11 +168,13 @@ export default function AdminMapView() {
           <Link to="/admin/users" className="nav-item">Usuarios</Link>
           <Link to="/admin/panel" className="nav-item">Panel</Link>
         </nav>
-        <div className="right">
-          <div className="username">Admin</div>
+        <button className="right user-menu" onClick={() => cerrarSesion(navigate)} title="Cerrar sesión">
+          <div className="username">{usuario?.nombre || 'Admin'}</div>
           <div className="avatar admin-avatar" aria-hidden="true" />
-        </div>
+        </button>
       </header>
+
+      {errorMsg && <p className="no-results" style={{ color: 'var(--red, #d9362e)', padding: '8px 24px' }}>{errorMsg}</p>}
 
       <div className="container">
         <aside className="sidebar left">
@@ -149,74 +193,55 @@ export default function AdminMapView() {
 
           <div className="admin-tools">
             <div className="admin-tools-title">⚙ Herramientas Admin</div>
-            <button className="btn tool edit" onClick={openEditPoints}>✎ Editar punto ecológico</button>
-            <button className="btn tool add" onClick={() => setShowAddPoint(true)}>+ Agregar nuevo punto</button>
-            <button className="btn tool delete" onClick={() => setShowDeletePoints(true)}>🗑 Eliminar punto</button>
+            <button className={`btn tool ${marcando ? 'active-tool' : 'edit'}`} onClick={toggleMarcando}>
+              📍 {marcando ? 'Cancelar marcado' : 'Marcar edificio'}
+            </button>
+            <div className="marker-progress">{marcadosCount} / {edificios.length} edificios marcados</div>
+
+            {marcando && (
+              <div className="mark-panel">
+                <label className="form-field">
+                  <span>Edificio a ubicar:</span>
+                  <select value={edificioSeleccionado} onChange={(e) => setEdificioSeleccionado(e.target.value)}>
+                    <option value="">Selecciona...</option>
+                    {edificiosOrdenados.map((ed) => (
+                      <option key={ed.id} value={ed.id}>
+                        {ed.letra} {ed.pos_x != null ? '✓' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {edificioSeleccionado
+                  ? <p className="mark-hint">Haz clic sobre el mapa en el punto exacto del edificio.</p>
+                  : <p className="mark-hint">Elige un edificio de la lista.</p>}
+                {mensaje && <p className="mark-msg">{mensaje}</p>}
+              </div>
+            )}
           </div>
         </aside>
 
         <main className="map-area">
           <div className="map-search">
-            <input placeholder="Buscar edificio o punto..." />
+            <input
+              placeholder="Buscar edificio o punto..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
 
-          <div className="map-canvas" role="img" aria-label="Mapa interactivo del campus">
+          <div className="map-canvas" ref={containerRef} role="img" aria-label="Mapa interactivo del campus">
             <div
-              className="map-bg"
-              style={{ backgroundImage: `url(${campusMap})`, backgroundPosition: `${position.x}% ${position.y}%` }}
+              className={`map-layer ${marcando && edificioSeleccionado ? 'marking' : ''}`}
+              style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
               onPointerLeave={onPointerUp}
-            />
-
-            {editing && (
-              <div className="popup edit" style={{left:'55%', top:'27%'}}>
-                <div className="popup-title edit-title">✎ Editar punto ecológico</div>
-
-                {points.length > 1 && (
-                  <label className="form-field">
-                    <span>Punto:</span>
-                    <select
-                      value={selectedPointId ?? ''}
-                      onChange={(e) => {
-                        const point = points.find((p) => p.id === Number(e.target.value))
-                        if (point) selectPointToEdit(point)
-                      }}
-                    >
-                      {points.map((p) => (
-                        <option key={p.id} value={p.id}>{p.name} · Edif. {p.building}</option>
-                      ))}
-                    </select>
-                  </label>
-                )}
-
-                <label className="form-field">
-                  <span>Nombre:</span>
-                  <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} />
-                </label>
-
-                <label className="form-field">
-                  <span>Edificio:</span>
-                  <select value={editBuilding} onChange={(e) => setEditBuilding(e.target.value)}>
-                    {buildingLetters.map((b) => <option key={b} value={b}>{b}</option>)}
-                  </select>
-                </label>
-
-                <label className="form-field">
-                  <span>Estado:</span>
-                  <select value={editStatus} onChange={(e) => setEditStatus(e.target.value)}>
-                    {pointStates.map((s) => <option key={s.type} value={s.type}>{s.label}</option>)}
-                  </select>
-                </label>
-
-                <div className="popup-actions">
-                  <button className="btn small" onClick={saveEditedPoint}>Guardar</button>
-                  <button className="btn small outline" onClick={() => setEditing(false)}>Cancelar</button>
-                </div>
-              </div>
-            )}
-
+              onClick={onMapLayerClick}
+            >
+              <img ref={imageRef} src={campusMap} className="map-image" alt="" draggable={false} />
+              <EdificioMarcadores edificios={mapaDataVisible} />
+            </div>
           </div>
 
           <div className="bottom-bar">
@@ -227,7 +252,7 @@ export default function AdminMapView() {
               <span className="dot blue" /> En proceso
               <span className="dot red" /> Dañado
             </div>
-            <div className="stats">Activos: 15 &nbsp;|&nbsp; Reportes abiertos: {activeReports.length}</div>
+            <div className="stats">{loading ? 'Cargando...' : `Edificios con alerta: ${edificiosConAlerta} | Reportes activos: ${activeReports.length}`}</div>
           </div>
         </main>
 
@@ -246,106 +271,6 @@ export default function AdminMapView() {
           </ul>
         </aside>
       </div>
-
-      {showAddPoint && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <div className="modal-header">
-              <h3>Agregar nuevo punto</h3>
-              <button className="modal-close" onClick={closeAddPoint}>✕</button>
-            </div>
-
-            <div className="modal-body">
-              <label className="modal-field">
-                <span>Edificio</span>
-                <div className="type-toggle">
-                  {buildingLetters.map((b) => (
-                    <button
-                      key={b}
-                      className={`type-btn ${newPointBuilding === b ? 'active' : ''}`}
-                      onClick={() => setNewPointBuilding(b)}
-                    >
-                      {b}
-                    </button>
-                  ))}
-                </div>
-              </label>
-
-              <label className="modal-field">
-                <span>Nombre del punto</span>
-                <input type="text" placeholder="Ej. Bote malla D2" value={newPointName} onChange={(e) => setNewPointName(e.target.value)} />
-              </label>
-
-              <label className="modal-field">
-                <span>Estado inicial</span>
-                <div className="type-toggle">
-                  {pointStates.map((s) => (
-                    <button
-                      key={s.type}
-                      className={`type-btn ${newPointStatus === s.type ? 'active' : ''}`}
-                      onClick={() => setNewPointStatus(s.type)}
-                    >
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
-              </label>
-            </div>
-
-            <div className="modal-actions">
-              <button className="btn outline" onClick={closeAddPoint}>Cancelar</button>
-              <button className="btn primary" onClick={createPoint}>Agregar punto</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showDeletePoints && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <div className="modal-header">
-              <h3>Eliminar punto</h3>
-              <button className="modal-close" onClick={() => setShowDeletePoints(false)}>✕</button>
-            </div>
-
-            <div className="modal-body">
-              {points.length === 0 && <p className="no-results">No hay puntos ecológicos registrados.</p>}
-              {points.map((p) => (
-                <div key={p.id} className="point-row">
-                  <span>{p.name} · Edif. {p.building}</span>
-                  <button className="btn danger" onClick={() => setPointToDelete(p)}>🗑 Eliminar</button>
-                </div>
-              ))}
-            </div>
-
-            <div className="modal-actions">
-              <button className="btn outline" onClick={() => setShowDeletePoints(false)}>Cerrar</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {pointToDelete && (
-        <div className="modal-overlay">
-          <div className="modal confirm-modal">
-            <div className="modal-header">
-              <h3>Eliminar punto ecológico</h3>
-              <button className="modal-close" onClick={() => setPointToDelete(null)}>✕</button>
-            </div>
-
-            <div className="modal-body">
-              <p className="confirm-text">
-                ¿Seguro que quieres eliminar el punto <strong>"{pointToDelete.name}"</strong>? Esta acción no se puede deshacer.
-              </p>
-            </div>
-
-            <div className="modal-actions">
-              <button className="btn outline" onClick={() => setPointToDelete(null)}>Cancelar</button>
-              <button className="btn danger" onClick={confirmDeletePoint}>Sí, eliminar</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

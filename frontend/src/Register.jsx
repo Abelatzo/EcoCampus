@@ -1,7 +1,59 @@
-import { Link } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import './Register.scss'
 
 export default function Register() {
+  const navigate = useNavigate()
+  const [nombre, setNombre] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  const handleRegister = async (e) => {
+    e.preventDefault()
+    setError('')
+    setSuccess('')
+
+    if (!nombre.trim() || !email.trim() || !password || !confirmPassword) {
+      setError('Completa todos los campos')
+      return
+    }
+    if (!/^al[0-9]+@utcj\.edu\.mx$/i.test(email.trim())) {
+      setError('Usa tu correo institucional con formato al + matrícula (ej. al24311267@utcj.edu.mx)')
+      return
+    }
+    if (password !== confirmPassword) {
+      setError('Las contraseñas no coinciden')
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombre: nombre.trim(), email: email.trim(), password })
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setError(data.error || 'No se pudo crear la cuenta')
+        return
+      }
+
+      setSuccess('Cuenta creada correctamente. Redirigiendo a inicio de sesión...')
+      setTimeout(() => navigate('/login'), 1500)
+    } catch {
+      setError('Error al conectar con el servidor')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   return (
     <div className="register-page">
       <div className="left-panel">
@@ -17,30 +69,35 @@ export default function Register() {
           <h2>Crear cuenta</h2>
           <p className="muted">Completa tus datos para unirte a EcoCampus</p>
 
-          <form onSubmit={(e) => e.preventDefault()} className="register-form">
+          <form onSubmit={handleRegister} className="register-form">
             <div className="grid">
               <label className="field">
                 <span className="label-text">Nombre completo</span>
-                <input type="text" placeholder="Ej. Diego Araiza López" />
+                <input type="text" placeholder="Ej. Diego Araiza López" value={nombre} onChange={(e) => setNombre(e.target.value)} />
               </label>
 
               <label className="field">
                 <span className="label-text">Correo institucional</span>
-                <input type="email" placeholder="usuario@utcj.edu.mx" />
+                <input type="email" placeholder="usuario@utcj.edu.mx" value={email} onChange={(e) => setEmail(e.target.value)} />
               </label>
 
               <label className="field">
                 <span className="label-text">Contraseña</span>
-                <input type="password" placeholder="**********" />
+                <input type="password" placeholder="**********" value={password} onChange={(e) => setPassword(e.target.value)} />
               </label>
 
               <label className="field">
                 <span className="label-text">Confirmar contraseña</span>
-                <input type="password" placeholder="**********" />
+                <input type="password" placeholder="**********" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
               </label>
             </div>
 
-            <button className="btn primary" type="submit">Crear cuenta</button>
+            {error && <p style={{ color: 'red', fontSize: '14px' }}>{error}</p>}
+            {success && <p style={{ color: 'green', fontSize: '14px' }}>{success}</p>}
+
+            <button className="btn primary" type="submit" disabled={submitting}>
+              {submitting ? 'Creando cuenta...' : 'Crear cuenta'}
+            </button>
 
             <p className="footer-link">¿Ya tienes cuenta?  <Link to="/login">Inicia sesión</Link></p>
           </form>

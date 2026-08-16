@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { cerrarSesion } from './session'
 import './Events.scss'
 
 // Mapea el "tipo" que manda el backend (evento | actualizacion | informacion)
@@ -33,8 +34,9 @@ function mapEvento(e) {
 }
 
 export default function Events() {
+  const usuario = JSON.parse(sessionStorage.getItem('usuario') || 'null')
   const navigate = useNavigate()
-  const token = localStorage.getItem('token')
+  const token = sessionStorage.getItem('token')
   const API = import.meta.env.VITE_API_URL
   const headers = {
     'Authorization': `Bearer ${token}`,
@@ -49,11 +51,6 @@ export default function Events() {
   const [searchQuery, setSearchQuery] = useState('')
   const [detailEvent, setDetailEvent] = useState(null)
   const [page, setPage] = useState(1)
-
-  useEffect(() => {
-    if (!token) { navigate('/login'); return }
-    fetchEventos()
-  }, [])
 
   const fetchEventos = async () => {
     setLoading(true)
@@ -72,6 +69,12 @@ export default function Events() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (!token) { navigate('/login'); return }
+    queueMicrotask(fetchEventos)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const selectFilter = (f) => {
     setActiveFilter(f)
@@ -108,10 +111,10 @@ export default function Events() {
           <Link to="/reports" className="nav-item">Reportes</Link>
           <Link to="/events" className="nav-item active">Eventos</Link>
         </nav>
-        <div className="right">
-          <div className="username">Diego A.</div>
+        <button className="right user-menu" onClick={() => cerrarSesion(navigate)} title="Cerrar sesión">
+          <div className="username">{usuario?.nombre || 'Usuario'}</div>
           <div className="avatar" aria-hidden="true" />
-        </div>
+        </button>
       </header>
 
       <div className="page-content">

@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { useReports, CURRENT_USER } from './reportsStore'
+import { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useReports } from './reportsStore'
+import { cerrarSesion } from './session'
 import './Reports.scss'
 
 const buildings = [
@@ -20,8 +21,13 @@ const reportStates = [
 const PAGE_SIZE = 4
 
 export default function Reports() {
-  const { reports, addReport, updateReport } = useReports()
-  const myReports = reports.filter((r) => r.author === CURRENT_USER)
+  const navigate = useNavigate()
+  const usuario = JSON.parse(sessionStorage.getItem('usuario') || 'null')
+  const { reports, loading, errorMsg, addReport, updateReport } = useReports()
+
+  useEffect(() => {
+    if (!sessionStorage.getItem('token')) navigate('/login')
+  }, [navigate])
 
   const [showModal, setShowModal] = useState(false)
   const [building, setBuilding] = useState(buildings[0])
@@ -40,6 +46,7 @@ export default function Reports() {
   const [statusFilter, setStatusFilter] = useState([])
   const [buildingDraft, setBuildingDraft] = useState([])
   const [buildingFilter, setBuildingFilter] = useState([])
+  const [searchTerm, setSearchTerm] = useState('')
   const [page, setPage] = useState(1)
 
   const toggleStatus = (type) => {
@@ -56,9 +63,15 @@ export default function Reports() {
     setPage(1)
   }
 
-  const filteredReportList = myReports.filter((r) =>
+  const normalizedSearch = searchTerm.trim().toLowerCase()
+  const filteredReportList = reports.filter((r) =>
     (statusFilter.length === 0 || statusFilter.includes(r.statusType)) &&
-    (buildingFilter.length === 0 || buildingFilter.includes(r.building))
+    (buildingFilter.length === 0 || buildingFilter.includes(r.building)) &&
+    (normalizedSearch === '' ||
+      r.title.toLowerCase().includes(normalizedSearch) ||
+      r.description.toLowerCase().includes(normalizedSearch) ||
+      r.location.toLowerCase().includes(normalizedSearch) ||
+      r.author.toLowerCase().includes(normalizedSearch))
   )
 
   const totalPages = Math.max(1, Math.ceil(filteredReportList.length / PAGE_SIZE))
@@ -82,15 +95,16 @@ export default function Reports() {
     if (!newTitle.trim()) return
     addReport({
       title: newTitle.trim(),
-      location: newLocationDetail.trim() ? `${building} · ${newLocationDetail.trim()}` : building,
       building: building.replace('Edificio ', ''),
-      status: 'Pendiente',
-      statusType: 'pending',
-      author: CURRENT_USER,
+      locationDetail: newLocationDetail.trim(),
       description: newDescription.trim() || 'Sin descripción adicional.',
-      image: newImage ? URL.createObjectURL(newImage) : null,
+      image: newImage,
     })
     closeNewReportModal()
+  }
+
+  const changeStatus = (report, state) => {
+    updateReport(report.id, { statusType: state.type })
   }
 
   const openEdit = (report) => {
@@ -113,11 +127,13 @@ export default function Reports() {
           <Link to="/reports" className="nav-item active">Reportes</Link>
           <Link to="/events" className="nav-item">Eventos</Link>
         </nav>
-        <div className="right">
-          <div className="username">Diego A.</div>
+        <button className="right user-menu" onClick={() => cerrarSesion(navigate)} title="Cerrar sesión">
+          <div className="username">{usuario?.nombre || 'Usuario'}</div>
           <div className="avatar" aria-hidden="true" />
-        </div>
+        </button>
       </header>
+
+      {errorMsg && <p className="no-results" style={{ color: 'var(--red, #d9362e)', padding: '8px 24px' }}>{errorMsg}</p>}
 
       <div className="container">
         <aside className="sidebar left">
@@ -152,18 +168,23 @@ export default function Reports() {
         <main className="main-content">
           <div className="header-row">
             <div>
-              <h2>Mis Reportes</h2>
-              <p className="count">{filteredReportList.length} reportes encontrados</p>
+              <h2>Reportes</h2>
+              <p className="count">{filteredReportList.length} reportes activos — cualquiera puede actualizar el estado</p>
             </div>
             <button className="btn new-report" onClick={() => setShowModal(true)}>+ Nuevo Reporte</button>
           </div>
 
           <div className="search-bar">
-            <input placeholder="Buscar en tus reportes..." />
+            <input
+              placeholder="Buscar en los reportes..."
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setPage(1) }}
+            />
           </div>
 
           <div className="report-list">
-            {filteredReportList.length === 0 && <p className="no-results">No hay reportes con ese estado.</p>}
+            {loading && <p className="no-results">Cargando reportes...</p>}
+            {!loading && filteredReportList.length === 0 && <p className="no-results">No hay reportes con ese estado.</p>}
             {pageReportList.map((report) => (
               <article key={report.id} className="report-card">
                 <div className={`status-side ${report.statusType}`} />
@@ -179,12 +200,31 @@ export default function Reports() {
                       </div>
                       <span className="report-time">{report.time}</span>
                     </div>
-                    <span className={`pill ${report.statusType}`}>{report.status}</span>
+                    <div className="tags-row">
+                      <span className={`pill ${report.statusType}`}>{report.status}</span>
+                      <span className="pill author">👤 {report.isMine ? 'Tú' : report.author}</span>
+                    </div>
                     <p className="description">{report.description}</p>
+
+                    <div className="state-change">
+                      <span className="state-change-label">Cambiar estado:</span>
+                      <div className="state-change-options">
+                        {reportStates.map((s) => (
+                          <button
+                            key={s.type}
+                            className={`state-btn ${s.type} ${report.statusType === s.type ? 'active' : ''}`}
+                            onClick={() => changeStatus(report, s)}
+                          >
+                            {s.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
                     <div className="card-actions">
                       <div className="action-buttons">
                         <button className="btn outline" onClick={() => setDetailReport(report)}>Ver detalle</button>
-                        {report.author === CURRENT_USER && (
+                        {report.isMine && report.statusType === 'pending' && (
                           <button className="btn primary" onClick={() => openEdit(report)}>Actualizar</button>
                         )}
                       </div>

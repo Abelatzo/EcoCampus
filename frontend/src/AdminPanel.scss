@@ -45,11 +45,23 @@ body{overflow-y:auto}
 .topbar .username{opacity:0.95; font-size:13px}
 .topbar .avatar{width:24px; height:24px; background:rgba(255,255,255,0.22); border-radius:50%}
 .topbar .admin-avatar{background:#f5a623}
+.topbar .user-menu{border:none; background:transparent; color:inherit; font:inherit; cursor:pointer; border-radius:20px; padding:4px 8px; transition:background .15s}
+.topbar .user-menu:hover{background:rgba(255,255,255,0.12)}
 
 .page-content{padding:12px 16px; min-width:0}
 
+.page-header{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap}
 .page-header h2{margin:0 0 2px 0; font-size:15px; font-weight:700}
 .page-header .subtitle{margin:0; color:var(--muted); font-size:10px}
+.period-select{
+  padding:6px 10px;
+  border-radius:6px;
+  border:1px solid var(--border);
+  font-size:10px;
+  background:#fff;
+  color:#303a30;
+  flex-shrink:0;
+}
 
 .stats-grid{
   display:grid;
@@ -134,6 +146,7 @@ body{overflow-y:auto}
 .bar-label{font-size:8px; color:var(--muted); margin-top:5px; white-space:nowrap}
 
 .list{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:4px}
+.list.simple{max-height:190px; overflow-y:auto; padding-right:2px}
 .list-row{
   display:flex;
   justify-content:space-between;
