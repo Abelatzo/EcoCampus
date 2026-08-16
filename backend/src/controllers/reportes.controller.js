@@ -3,6 +3,28 @@ import { fileTypeFromBuffer } from 'file-type'
 import { supabase } from '../config/supabase.js'
 
 const MIME_A_EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }
+const BUCKET_FOTOS = 'reportes-fotos'
+
+// Extrae el path dentro del bucket a partir de la URL publica que devuelve
+// getPublicUrl (".../object/public/reportes-fotos/<path>") -- es lo que
+// storage.remove() necesita, no la URL completa.
+const pathDesdeFotoUrl = (foto_url) => {
+  if (!foto_url) return null
+  const marcador = `/object/public/${BUCKET_FOTOS}/`
+  const i = foto_url.indexOf(marcador)
+  return i === -1 ? null : foto_url.slice(i + marcador.length)
+}
+
+// Borra la foto del bucket si existe. No hay policy de DELETE por usuario
+// (solo INSERT/SELECT), asi que corre con el cliente de service role. Si
+// falla, se loguea pero no se interrumpe la operacion principal (borrar/
+// resolver el reporte) por un problema de limpieza de storage.
+const borrarFotoStorage = async (foto_url) => {
+  const path = pathDesdeFotoUrl(foto_url)
+  if (!path) return
+  const { error } = await supabase.storage.from(BUCKET_FOTOS).remove([path])
+  if (error) console.error(`borrarFotoStorage fallo para '${path}':`, error.message)
+}
 
 // POST /api/reportes/foto — subir foto de un reporte
 // El Content-Type que manda el navegador es spoofeable; se detecta el
@@ -76,6 +98,15 @@ export const estadoMapa = async (req, res) => {
   res.json(resultado)
 }
 
+// QA 2026-08-16: misma condicion de carrera que se aislo y mitigo en
+// verificarAuth (ver middlewares/auth.js) -- bajo peticiones concurrentes
+// al cliente de Supabase, el embed usuarios(nombre) a veces regresa null
+// para un usuario que si existe ("Desconocido" en la UI). reportes.usuario_id
+// es NOT NULL (siempre hay autor), asi que cualquier fila sin su embed
+// esta rota -- un reintento entero de la consulta casi siempre la resuelve.
+const tieneEmbedUsuarioIncompleto = (filas) =>
+  (filas || []).some((f) => !f.usuarios)
+
 // GET /api/reportes — reportes activos (todo excepto resuelto)
 // Se muestran los de TODOS los usuarios (no solo el propio) para que
 // cualquiera pueda avanzar el estatus -- por eso se usa el cliente con
@@ -85,7 +116,7 @@ export const estadoMapa = async (req, res) => {
 // un bote/malla esta dañado para ubicarlo o atenderlo. Solo "resuelto"
 // se excluye, para no saturar la lista con reportes ya cerrados.
 export const obtenerActivos = async (req, res) => {
-  const { data, error } = await supabase
+  const consulta = () => supabase
     .from('reportes')
     .select(`
       id,
@@ -101,6 +132,11 @@ export const obtenerActivos = async (req, res) => {
     `)
     .neq('estatus', 'resuelto')
     .order('created_at', { ascending: false })
+
+  let { data, error } = await consulta()
+  if (!error && tieneEmbedUsuarioIncompleto(data)) {
+    ({ data, error } = await consulta())
+  }
 
   if (error) return res.status(500).json({ error: error.message })
   res.json(data)
@@ -173,13 +209,18 @@ export const actualizarEstatus = async (req, res) => {
   // resuelto pueden actualizarlo sin depender del autor original.
   const { data: reporte, error: errorBuscar } = await supabase
     .from('reportes')
-    .select('id')
+    .select('id, foto_url')
     .eq('id', id)
     .single()
 
   if (errorBuscar || !reporte) {
     return res.status(404).json({ error: 'Reporte no encontrado' })
   }
+
+  // Un reporte resuelto solo sirve como dato historico en el panel -- la
+  // foto ya no aporta nada y se queda ocupando el bucket para siempre si no
+  // se borra aqui (no hay ningun otro lugar del codigo que lo haga).
+  const debeBorrarFoto = estatus === 'resuelto' && !!reporte.foto_url
 
   // UPDATE y SELECT de la respuesta van por separado. Se comprobo contra la
   // base (Supabase SQL editor + logs de Railway/Supabase, PR de QA del
@@ -193,7 +234,7 @@ export const actualizarEstatus = async (req, res) => {
   // y tomando el primer elemento.
   const { error: errorUpdate } = await supabase
     .from('reportes')
-    .update({ estatus })
+    .update(debeBorrarFoto ? { estatus, foto_url: null } : { estatus })
     .eq('id', id)
 
   if (errorUpdate) {
@@ -203,6 +244,8 @@ export const actualizarEstatus = async (req, res) => {
     )
     return res.status(500).json({ error: 'No se pudo actualizar el estatus, intenta de nuevo en unos segundos' })
   }
+
+  if (debeBorrarFoto) await borrarFotoStorage(reporte.foto_url)
 
   const { data: filas, error: errorSelect } = await supabase
     .from('reportes')
@@ -279,7 +322,7 @@ export const eliminarReporte = async (req, res) => {
 
   const { data: reporte, error: errorBuscar } = await supabase
     .from('reportes')
-    .select('id')
+    .select('id, foto_url')
     .eq('id', id)
     .single()
 
@@ -291,6 +334,9 @@ export const eliminarReporte = async (req, res) => {
     .eq('id', reporte.id)
 
   if (error) return res.status(500).json({ error: error.message })
+
+  if (reporte.foto_url) await borrarFotoStorage(reporte.foto_url)
+
   res.json({ message: 'Reporte eliminado correctamente' })
 }
 
@@ -327,7 +373,10 @@ export const historial = async (req, res) => {
   if (hasta) query = query.lte('created_at', hasta)
   if (edificio_id) query = query.eq('edificio_id', edificio_id)
 
-  const { data, error } = await query
+  let { data, error } = await query
+  if (!error && tieneEmbedUsuarioIncompleto(data)) {
+    ({ data, error } = await query)
+  }
   if (error) return res.status(500).json({ error: error.message })
   res.json(data)
 }
