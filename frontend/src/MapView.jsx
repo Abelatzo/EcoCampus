@@ -15,6 +15,11 @@ const reportStates = [
 ]
 
 const statusDotClass = { pending: 'orange', 'in-progress': 'blue', resolved: 'green', damaged: 'red' }
+// El filtro de "Estado del reporte" usa los tipos de reportes (pending/in-progress/
+// resolved/damaged); el estado agregado del edificio (bote_mallas.estatus) usa otro
+// vocabulario (pendiente/en_proceso/disponible/dañado). Mapeo entre ambos para poder
+// filtrar los marcadores del mapa con el mismo checkbox.
+const FILTER_TYPE_TO_ESTATUS = { pending: 'pendiente', 'in-progress': 'en_proceso', resolved: 'disponible', damaged: 'dañado' }
 const MAX_ACTIVE_REPORTS = 6
 const POLL_MS = 15000
 
@@ -66,12 +71,14 @@ export default function MapView() {
     (r.building || '').toLowerCase().includes(normalizedSearch)
   ).slice(0, MAX_ACTIVE_REPORTS)
 
-  const edificiosVisibles = normalizedSearch === ''
-    ? edificios
-    : edificios.filter((e) =>
-        (e.letra || '').toLowerCase().includes(normalizedSearch) ||
-        e.reportes.some((r) => r.titulo.toLowerCase().includes(normalizedSearch))
-      )
+  const statusFilterEstatus = statusFilter.map((t) => FILTER_TYPE_TO_ESTATUS[t] || t)
+  const edificiosVisibles = edificios
+    .filter((e) => statusFilterEstatus.length === 0 || statusFilterEstatus.includes(e.estatus))
+    .filter((e) =>
+      normalizedSearch === '' ||
+      (e.letra || '').toLowerCase().includes(normalizedSearch) ||
+      e.reportes.some((r) => r.titulo.toLowerCase().includes(normalizedSearch))
+    )
 
   const edificiosConAlerta = edificios.filter((e) => e.estatus !== 'disponible').length
 
