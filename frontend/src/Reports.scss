@@ -6,6 +6,7 @@
   color:var(--text);
   min-height:100vh;
   font-size:12px;
+  overflow-x:hidden;
 }
 .reports-app *{font-size:inherit}
 
@@ -269,6 +270,9 @@
   .reports-app .topbar .nav{flex:0 0 auto; width:100%; justify-content:center; flex-wrap:wrap; gap:12px}
   .reports-app .topbar .right{flex:0 0 auto}
   .main-content{gap:6px}
+  .header-row{flex-wrap:wrap}
+  .header-row > div{min-width:0}
+  .btn.new-report{white-space:nowrap}
   .report-card{flex-direction:column}
   .card-content{flex-direction:column}
   .card-media{min-width:auto; justify-content:flex-start}
