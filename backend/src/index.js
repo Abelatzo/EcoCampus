@@ -18,6 +18,18 @@ const PORT = process.env.PORT || 3000
 app.use(cors())
 app.use(express.json())
 
+// Express genera ETag por defecto en res.json(); sin esto, el navegador
+// puede revalidar y quedarse con una respuesta 304 vieja de antes de iniciar
+// sesion (el endpoint no varia por Authorization) -- el mapa y los reportes
+// se veian vacios hasta refrescar la pagina porque el poll traia el cache
+// en vez de datos frescos. Estas rutas son todas privadas/por-usuario, no
+// hay nada que valga la pena cachear.
+app.set('etag', false)
+app.use('/api', (req, res, next) => {
+  res.set('Cache-Control', 'no-store')
+  next()
+})
+
 app.use('/api/auth', authRoutes)
 app.use('/api/bote-mallas', boteMallasRoutes)
 app.use('/api/reportes', reportesRoutes)
