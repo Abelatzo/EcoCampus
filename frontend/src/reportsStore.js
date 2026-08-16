@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 
 export const ReportsContext = createContext(null)
 
@@ -40,6 +41,15 @@ function mapReporte(r, currentUserId) {
 }
 
 export function useReportsState() {
+  // ReportsProvider esta arriba de <Routes> en App.jsx y App nunca vuelve a
+  // renderizar, asi que React reutiliza la misma referencia de children en
+  // cada navegacion -- sin suscribirse al router, este hook nunca se
+  // re-ejecuta tras el login y se queda leyendo el token viejo (sessionStorage
+  // de antes de iniciar sesion) para siempre, hasta un refresh completo de
+  // la pagina. useLocation() suscribe al contexto del router directamente,
+  // forzando un re-render (y por lo tanto releer sessionStorage) en cada
+  // cambio de ruta, sin depender de que el padre pase children nuevos.
+  useLocation()
   const [reports, setReports] = useState([])
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
