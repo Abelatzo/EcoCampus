@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto'
 import { fileTypeFromBuffer } from 'file-type'
 import { supabase } from '../config/supabase.js'
+import { createClient } from '@supabase/supabase-js'
 
 const MIME_A_EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }
 const BUCKET_FOTOS = 'reportes-fotos'
@@ -116,22 +117,28 @@ const tieneEmbedUsuarioIncompleto = (filas) =>
 // un bote/malla esta dañado para ubicarlo o atenderlo. Solo "resuelto"
 // se excluye, para no saturar la lista con reportes ya cerrados.
 export const obtenerActivos = async (req, res) => {
-  const consulta = () => supabase
-    .from('reportes')
-    .select(`
-      id,
-      titulo,
-      ubicacion,
-      descripcion,
-      foto_url,
-      estatus,
-      created_at,
-      usuario_id,
-      edificios (letra),
-      usuarios (nombre)
-    `)
-    .neq('estatus', 'resuelto')
-    .order('created_at', { ascending: false })
+  const clienteFresh = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    { auth: { persistSession: false } }
+  )
+  
+  const consulta = () => clienteFresh
+  .from('reportes')
+  .select(`
+    id,
+    titulo,
+    ubicacion,
+    descripcion,
+    foto_url,
+    estatus,
+    created_at,
+    usuario_id,
+    edificios (letra),
+    usuarios (nombre)
+  `)
+  .neq('estatus', 'resuelto')
+  .order('created_at', { ascending: false })
 
   let { data, error } = await consulta()
   if (!error && tieneEmbedUsuarioIncompleto(data)) {

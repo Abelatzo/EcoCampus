@@ -41,35 +41,23 @@ function mapReporte(r, currentUserId) {
 }
 
 export function useReportsState() {
-  // ReportsProvider esta arriba de <Routes> en App.jsx y App nunca vuelve a
-  // renderizar, asi que React reutiliza la misma referencia de children en
-  // cada navegacion -- sin suscribirse al router, este hook nunca se
-  // re-ejecuta tras el login y se queda leyendo el token viejo (sessionStorage
-  // de antes de iniciar sesion) para siempre, hasta un refresh completo de
-  // la pagina. useLocation() suscribe al contexto del router directamente,
-  // forzando un re-render (y por lo tanto releer sessionStorage) en cada
-  // cambio de ruta, sin depender de que el padre pase children nuevos.
   useLocation()
   const [reports, setReports] = useState([])
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
-  // El poll de 15s y un refetch manual (tras crear/actualizar un reporte)
-  // pueden quedar en vuelo al mismo tiempo -- sin esto, si el poll (mas
-  // viejo) tarda mas en resolver que el refetch manual (mas nuevo), la
-  // respuesta vieja pisa la fresca y el cambio que se acaba de hacer
-  // desaparece de la pantalla aunque el backend ya lo haya guardado bien.
   const requestIdRef = useRef(0)
 
-  const token = sessionStorage.getItem('token')
-  const usuario = JSON.parse(sessionStorage.getItem('usuario') || 'null')
   const API = import.meta.env.VITE_API_URL
-  const esAdmin = usuario?.rol === 'administrador'
-  const headers = {
-    Authorization: `Bearer ${token}`,
-    'Content-Type': 'application/json',
-  }
 
   const fetchReportes = async (silent = false) => {
+    const token = sessionStorage.getItem('token')
+    const usuario = JSON.parse(sessionStorage.getItem('usuario') || 'null')
+    const esAdmin = usuario?.rol === 'administrador'
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    }
+
     if (!token) return
     const requestId = ++requestIdRef.current
     if (!silent) setLoading(true)
@@ -91,20 +79,16 @@ export function useReportsState() {
     }
   }
 
-  // POLL_MS igual al del mapa (15s): sin esto, un reporte creado o cambiado
-  // de estatus por otro usuario/dispositivo no aparece hasta recargar la app.
   const POLL_MS = 15000
   useEffect(() => {
-    queueMicrotask(() => fetchReportes())
+    fetchReportes()
     const interval = setInterval(() => fetchReportes(true), POLL_MS)
     return () => clearInterval(interval)
-    // token identifica la sesion: si cambia (login/logout/cambio de rol sin
-    // recargar la app), hay que volver a pedir los reportes con el endpoint
-    // y usuario correctos -- si no, se queda con los datos de la sesion anterior.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token])
+  }, [])
 
   const subirFoto = async (image) => {
+    const token = sessionStorage.getItem('token')
     const form = new FormData()
     form.append('foto', image)
     const res = await fetch(`${API}/api/reportes/foto`, {
@@ -121,6 +105,11 @@ export function useReportsState() {
   }
 
   const addReport = async (report) => {
+    const token = sessionStorage.getItem('token')
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    }
     setErrorMsg('')
     try {
       const foto_url = report.image ? await subirFoto(report.image) : null
@@ -147,6 +136,11 @@ export function useReportsState() {
   }
 
   const updateReport = async (id, changes) => {
+    const token = sessionStorage.getItem('token')
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    }
     setErrorMsg('')
     try {
       if (changes.statusType) {
@@ -180,6 +174,11 @@ export function useReportsState() {
   }
 
   const deleteReport = async (id) => {
+    const token = sessionStorage.getItem('token')
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    }
     setErrorMsg('')
     try {
       const res = await fetch(`${API}/api/reportes/${id}`, { method: 'DELETE', headers })
@@ -194,6 +193,11 @@ export function useReportsState() {
   }
 
   const deleteReports = async (ids) => {
+    const token = sessionStorage.getItem('token')
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    }
     setErrorMsg('')
     try {
       const results = await Promise.all(
