@@ -1,5 +1,14 @@
 import { supabase } from '../config/supabase.js'
 
+// QA 2026-08-16: misma condicion de carrera mitigada en verificarAuth y
+// en reportes.controller.js -- bajo peticiones concurrentes al cliente de
+// Supabase, el embed usuarios(nombre) a veces regresa null para un usuario
+// que si existe. reportes.usuario_id es NOT NULL, asi que cualquier fila
+// sin su embed esta rota; un reintento entero de la consulta casi siempre
+// la resuelve.
+const tieneEmbedUsuarioIncompleto = (filas) =>
+  (filas || []).some((f) => !f.usuarios)
+
 export const estadisticas = async (req, res) => {
   const { desde, hasta } = req.query
 
@@ -83,7 +92,10 @@ export const reportesAdmin = async (req, res) => {
   if (edificio_id) query = query.eq('edificio_id', edificio_id)
   if (usuario_id) query = query.eq('usuario_id', usuario_id)
 
-  const { data, error } = await query
+  let { data, error } = await query
+  if (!error && tieneEmbedUsuarioIncompleto(data)) {
+    ({ data, error } = await query)
+  }
   if (error) return res.status(500).json({ error: error.message })
   res.json(data)
 }

@@ -98,6 +98,15 @@ export const estadoMapa = async (req, res) => {
   res.json(resultado)
 }
 
+// QA 2026-08-16: misma condicion de carrera que se aislo y mitigo en
+// verificarAuth (ver middlewares/auth.js) -- bajo peticiones concurrentes
+// al cliente de Supabase, el embed usuarios(nombre) a veces regresa null
+// para un usuario que si existe ("Desconocido" en la UI). reportes.usuario_id
+// es NOT NULL (siempre hay autor), asi que cualquier fila sin su embed
+// esta rota -- un reintento entero de la consulta casi siempre la resuelve.
+const tieneEmbedUsuarioIncompleto = (filas) =>
+  (filas || []).some((f) => !f.usuarios)
+
 // GET /api/reportes — reportes activos (todo excepto resuelto)
 // Se muestran los de TODOS los usuarios (no solo el propio) para que
 // cualquiera pueda avanzar el estatus -- por eso se usa el cliente con
@@ -107,7 +116,7 @@ export const estadoMapa = async (req, res) => {
 // un bote/malla esta dañado para ubicarlo o atenderlo. Solo "resuelto"
 // se excluye, para no saturar la lista con reportes ya cerrados.
 export const obtenerActivos = async (req, res) => {
-  const { data, error } = await supabase
+  const consulta = () => supabase
     .from('reportes')
     .select(`
       id,
@@ -123,6 +132,11 @@ export const obtenerActivos = async (req, res) => {
     `)
     .neq('estatus', 'resuelto')
     .order('created_at', { ascending: false })
+
+  let { data, error } = await consulta()
+  if (!error && tieneEmbedUsuarioIncompleto(data)) {
+    ({ data, error } = await consulta())
+  }
 
   if (error) return res.status(500).json({ error: error.message })
   res.json(data)
@@ -359,7 +373,10 @@ export const historial = async (req, res) => {
   if (hasta) query = query.lte('created_at', hasta)
   if (edificio_id) query = query.eq('edificio_id', edificio_id)
 
-  const { data, error } = await query
+  let { data, error } = await query
+  if (!error && tieneEmbedUsuarioIncompleto(data)) {
+    ({ data, error } = await query)
+  }
   if (error) return res.status(500).json({ error: error.message })
   res.json(data)
 }
