@@ -53,9 +53,21 @@ app.listen(PORT, () => {
 // evita que el proceso llegue a estar inactivo el tiempo suficiente.
 // No toca el fetch/transporte del cliente (eso fue lo que rompio los
 // triggers en un intento anterior), solo lo mantiene en uso.
-const HEARTBEAT_MS = 4 * 60 * 1000
+//
+// QA 2026-08-15: se observo el mismo patron con SELECTs que traen un
+// embed (reportes -> usuarios(nombre)) -- el mismo reporte, mismos datos,
+// a veces regresaba usuarios:null (justo despues de un rato sin trafico,
+// tipicamente al primer request tras iniciar sesion) y momentos despues,
+// en otro request, resolvia bien. No se pudo aislar mas sin acceso directo
+// a los logs de Postgres/PostgREST -- baja el intervalo y se agrega un
+// segundo heartbeat con la misma forma de query (SELECT con embed) para
+// cubrir esa ventana especifica tambien.
+const HEARTBEAT_MS = 60 * 1000
 setInterval(() => {
   supabase.from('edificios').select('id').limit(1).then(({ error }) => {
     if (error) console.error('Heartbeat de Supabase fallo:', error.message)
+  })
+  supabase.from('reportes').select('id, usuarios (nombre)').limit(1).then(({ error }) => {
+    if (error) console.error('Heartbeat de Supabase (embed) fallo:', error.message)
   })
 }, HEARTBEAT_MS)
