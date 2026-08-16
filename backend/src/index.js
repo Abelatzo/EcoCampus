@@ -42,9 +42,26 @@ app.get('/', (req, res) => {
   res.json({ message: 'EcoCampus API corriendo' })
 })
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`)
 })
+
+// Reinicio programado: el proceso a veces queda en un estado stale despues
+// de un rato (conexion a Supabase, cache interno, etc.) que ningun redeploy
+// de codigo limpia -- solo un restart manual del servicio lo arreglaba
+// (ver QA 2026-08-15/16). En vez de esperar a que alguien lo note, el
+// proceso se cierra solo cada tanto; la politica de restart de Railway
+// (reinicia ante un proceso que termina) lo vuelve a levantar limpio.
+// Sale con codigo 1 (no 0) a proposito -- un exit "exitoso" no siempre
+// dispara el restart automatico segun la politica configurada.
+const RESTART_MS = 6 * 60 * 60 * 1000
+setTimeout(() => {
+  console.log('Reinicio programado, cerrando el servidor...')
+  server.close(() => process.exit(1))
+  // Por si alguna conexion queda colgada y server.close() nunca llama al
+  // callback, se fuerza la salida de todos modos.
+  setTimeout(() => process.exit(1), 10 * 1000)
+}, RESTART_MS)
 
 // Heartbeat: en un proceso persistente (Railway, no serverless), si el
 // cliente de Supabase queda inactivo mucho tiempo, la conexion subyacente
