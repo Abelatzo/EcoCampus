@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 
 export const ReportsContext = createContext(null)
@@ -53,6 +53,12 @@ export function useReportsState() {
   const [reports, setReports] = useState([])
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+  // El poll de 15s y un refetch manual (tras crear/actualizar un reporte)
+  // pueden quedar en vuelo al mismo tiempo -- sin esto, si el poll (mas
+  // viejo) tarda mas en resolver que el refetch manual (mas nuevo), la
+  // respuesta vieja pisa la fresca y el cambio que se acaba de hacer
+  // desaparece de la pantalla aunque el backend ya lo haya guardado bien.
+  const requestIdRef = useRef(0)
 
   const token = sessionStorage.getItem('token')
   const usuario = JSON.parse(sessionStorage.getItem('usuario') || 'null')
@@ -65,6 +71,7 @@ export function useReportsState() {
 
   const fetchReportes = async (silent = false) => {
     if (!token) return
+    const requestId = ++requestIdRef.current
     if (!silent) setLoading(true)
     setErrorMsg('')
     try {
@@ -75,11 +82,12 @@ export function useReportsState() {
         throw new Error(err.error || `Error ${res.status}`)
       }
       const data = await res.json()
+      if (requestId !== requestIdRef.current) return
       setReports(Array.isArray(data) ? data.map((r) => mapReporte(r, usuario?.id)) : [])
     } catch (err) {
-      if (!silent) setErrorMsg('No se pudieron cargar los reportes: ' + err.message)
+      if (requestId === requestIdRef.current && !silent) setErrorMsg('No se pudieron cargar los reportes: ' + err.message)
     } finally {
-      if (!silent) setLoading(false)
+      if (requestId === requestIdRef.current && !silent) setLoading(false)
     }
   }
 
