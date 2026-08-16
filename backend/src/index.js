@@ -8,8 +8,6 @@ import adminRoutes from './routes/admin.routes.js'
 import usuariosRoutes from './routes/usuarios.routes.js'
 import eventosRoutes from './routes/eventos.routes.js'
 import edificiosRoutes from './routes/edificios.routes.js'
-import { supabase } from './config/supabase.js'
-
 dotenv.config()
 
 const app = express()
@@ -63,28 +61,13 @@ setTimeout(() => {
   setTimeout(() => process.exit(1), 10 * 1000)
 }, RESTART_MS)
 
-// Heartbeat: en un proceso persistente (Railway, no serverless), si el
-// cliente de Supabase queda inactivo mucho tiempo, la conexion subyacente
-// puede quedar stale sin que el cliente lo detecte (escrituras devuelven
-// 200 sin persistir -- ver PR de conexion). Una query trivial periodica
-// evita que el proceso llegue a estar inactivo el tiempo suficiente.
-// No toca el fetch/transporte del cliente (eso fue lo que rompio los
-// triggers en un intento anterior), solo lo mantiene en uso.
-//
-// QA 2026-08-15: se observo el mismo patron con SELECTs que traen un
-// embed (reportes -> usuarios(nombre)) -- el mismo reporte, mismos datos,
-// a veces regresaba usuarios:null (justo despues de un rato sin trafico,
-// tipicamente al primer request tras iniciar sesion) y momentos despues,
-// en otro request, resolvia bien. No se pudo aislar mas sin acceso directo
-// a los logs de Postgres/PostgREST -- baja el intervalo y se agrega un
-// segundo heartbeat con la misma forma de query (SELECT con embed) para
-// cubrir esa ventana especifica tambien.
-const HEARTBEAT_MS = 60 * 1000
-setInterval(() => {
-  supabase.from('edificios').select('id').limit(1).then(({ error }) => {
-    if (error) console.error('Heartbeat de Supabase fallo:', error.message)
-  })
-  supabase.from('reportes').select('id, usuarios (nombre)').limit(1).then(({ error }) => {
-    if (error) console.error('Heartbeat de Supabase (embed) fallo:', error.message)
-  })
-}, HEARTBEAT_MS)
+// QA 2026-08-16: se quita el heartbeat de Supabase (corria cada 60s desde
+// el 2026-08-15) -- el plan de Supabase de este proyecto es "trial", y con
+// horas de polling constante del frontend (mapa + reportes cada 15s, x2
+// pantallas) mas este heartbeat mas las pruebas directas via Postman, el
+// patron real observado (la MISMA sesion valida alternando 200/401 en la
+// MISMA ruta) apunta mas a agotar el limite de conexiones/requests del
+// plan que a una conexion individual stale -- el heartbeat sumaba carga
+// en vez de ayudar. Si el problema reaparece, revisar el dashboard de
+// Supabase (Database > limite de conexiones, o throttling en el plan) en
+// vez de agregar mas trafico de diagnostico.
