@@ -147,7 +147,13 @@ export const crearReporte = async (req, res) => {
     .select()
     .single()
 
-  if (error) return res.status(500).json({ error: error.message })
+  if (error) {
+    console.error(
+      `crearReporte fallo (usuario ${req.user.id}, edificio '${edificio}', estatus '${estatusInicial}'):`,
+      error.code, error.message, error.details, error.hint
+    )
+    return res.status(500).json({ error: error.message })
+  }
   res.status(201).json(data)
 }
 
