@@ -175,41 +175,46 @@ export const actualizarEstatus = async (req, res) => {
     return res.status(404).json({ error: 'Reporte no encontrado' })
   }
 
-  // El UPDATE+SELECT atomico aqui puede sufrir un problema intermitente
-  // de PostgREST (reporta exito pero afecta 0 filas -- confirmado con
-  // pruebas directas contra la base, no es especifico de esta tabla ni
-  // reproducible bajo demanda) y single() revienta con "Cannot coerce
-  // the result to a single JSON object" (PGRST116). Se reintenta la
-  // operacion completa -- NO se separa update de select, porque un select
-  // de verificacion aparte deja una ventana para que un cambio de estatus
-  // concurrente de otro usuario se lea como "mismatch" y se reescriba
-  // encima por error. bote_mallas se mantiene solo, via el trigger
-  // trg_sync_bote_malla_edificio (misma transaccion que este UPDATE).
-  let actualizado = null
-  let errorFinal = null
-  for (let intento = 1; intento <= 5 && !actualizado; intento++) {
-    const { data, error } = await supabase
-      .from('reportes')
-      .update({ estatus })
-      .eq('id', id)
-      .select('id, titulo, ubicacion, descripcion, foto_url, estatus, created_at, usuario_id, edificios (letra), usuarios (nombre)')
-      .single()
+  // UPDATE y SELECT de la respuesta van por separado. Se comprobo contra la
+  // base (Supabase SQL editor + logs de Railway/Supabase, PR de QA del
+  // 2026-08-15) que el UPDATE en si siempre se guarda bien -- lo que fallaba
+  // 100% de las veces (no intermitente) era combinar UPDATE+SELECT con los
+  // embeds (edificios/usuarios) y .single() en una sola llamada: PostgREST
+  // regresaba PGRST116 "0 rows" en el paso de armar el objeto con los joins
+  // aun cuando el UPDATE si habia afectado la fila (se confirmaba actualizada
+  // al releer despues). single() ademas lanza excepcion ante cualquier
+  // desajuste de conteo de filas; se evita por completo leyendo como arreglo
+  // y tomando el primer elemento.
+  const { error: errorUpdate } = await supabase
+    .from('reportes')
+    .update({ estatus })
+    .eq('id', id)
 
-    if (!error) { actualizado = data; break }
-    errorFinal = error
-    if (error.code !== 'PGRST116') break
-    await new Promise((r) => setTimeout(r, 250 * intento))
-  }
-
-  if (!actualizado) {
+  if (errorUpdate) {
     console.error(
-      `actualizarEstatus fallo para reporte ${id} (usuario ${req.user.id}, estatus destino '${estatus}'):`,
-      errorFinal?.code, errorFinal?.message, errorFinal?.details, errorFinal?.hint
+      `actualizarEstatus (update) fallo para reporte ${id} (usuario ${req.user.id}, estatus destino '${estatus}'):`,
+      errorUpdate.code, errorUpdate.message, errorUpdate.details, errorUpdate.hint
     )
     return res.status(500).json({ error: 'No se pudo actualizar el estatus, intenta de nuevo en unos segundos' })
   }
 
-  res.json(actualizado)
+  const { data: filas, error: errorSelect } = await supabase
+    .from('reportes')
+    .select('id, titulo, ubicacion, descripcion, foto_url, estatus, created_at, usuario_id, edificios (letra), usuarios (nombre)')
+    .eq('id', id)
+
+  if (errorSelect || !filas?.length) {
+    console.error(
+      `actualizarEstatus (select post-update) fallo para reporte ${id}:`,
+      errorSelect?.code, errorSelect?.message, errorSelect?.details, errorSelect?.hint
+    )
+    // El estatus ya se guardo (el UPDATE de arriba no dio error); solo fallo
+    // traer la fila para la respuesta -- se le avisa al cliente que refresque
+    // en vez de reportar un fallo del cambio en si.
+    return res.status(200).json({ estatus, advertencia: 'El estatus se actualizo pero no se pudo confirmar de inmediato, refresca para verlo' })
+  }
+
+  res.json(filas[0])
 }
 
 // PATCH /api/reportes/:id — editar titulo/descripcion/ubicacion

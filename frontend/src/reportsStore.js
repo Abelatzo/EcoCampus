@@ -53,9 +53,9 @@ export function useReportsState() {
     'Content-Type': 'application/json',
   }
 
-  const fetchReportes = async () => {
+  const fetchReportes = async (silent = false) => {
     if (!token) return
-    setLoading(true)
+    if (!silent) setLoading(true)
     setErrorMsg('')
     try {
       const endpoint = esAdmin ? '/api/admin/reportes' : '/api/reportes'
@@ -67,14 +67,19 @@ export function useReportsState() {
       const data = await res.json()
       setReports(Array.isArray(data) ? data.map((r) => mapReporte(r, usuario?.id)) : [])
     } catch (err) {
-      setErrorMsg('No se pudieron cargar los reportes: ' + err.message)
+      if (!silent) setErrorMsg('No se pudieron cargar los reportes: ' + err.message)
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }
 
+  // POLL_MS igual al del mapa (15s): sin esto, un reporte creado o cambiado
+  // de estatus por otro usuario/dispositivo no aparece hasta recargar la app.
+  const POLL_MS = 15000
   useEffect(() => {
-    queueMicrotask(fetchReportes)
+    queueMicrotask(() => fetchReportes())
+    const interval = setInterval(() => fetchReportes(true), POLL_MS)
+    return () => clearInterval(interval)
     // token identifica la sesion: si cambia (login/logout/cambio de rol sin
     // recargar la app), hay que volver a pedir los reportes con el endpoint
     // y usuario correctos -- si no, se queda con los datos de la sesion anterior.
