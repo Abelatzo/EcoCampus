@@ -71,9 +71,19 @@ export default function MapView() {
     (r.building || '').toLowerCase().includes(normalizedSearch)
   ).slice(0, MAX_ACTIVE_REPORTS)
 
+  // bote_mallas.estatus es un agregado (dañado > pendiente > en_proceso >
+  // disponible) del edificio completo, pero al filtrar el usuario espera ver
+  // el edificio si CUALQUIERA de sus reportes coincide con el filtro, no solo
+  // si el agregado (el peor caso) coincide -- ej: un edificio con un reporte
+  // pendiente y uno en_proceso muestra el agregado "pendiente", pero debe
+  // seguir apareciendo si se filtra por "en proceso".
   const statusFilterEstatus = statusFilter.map((t) => FILTER_TYPE_TO_ESTATUS[t] || t)
+  const edificioCoincideFiltro = (e) =>
+    statusFilterEstatus.length === 0 ||
+    statusFilterEstatus.includes(e.estatus) ||
+    e.reportes.some((r) => statusFilterEstatus.includes(r.estatus))
   const edificiosVisibles = edificios
-    .filter((e) => statusFilterEstatus.length === 0 || statusFilterEstatus.includes(e.estatus))
+    .filter(edificioCoincideFiltro)
     .filter((e) =>
       normalizedSearch === '' ||
       (e.letra || '').toLowerCase().includes(normalizedSearch) ||
