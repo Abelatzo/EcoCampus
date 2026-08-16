@@ -168,12 +168,50 @@ CREATE TRIGGER trg_sync_bote_malla_edificio
   FOR EACH ROW EXECUTE FUNCTION public.sync_bote_malla_edificio();
 
 -- =============================================
+-- TABLA: reportes_historial_estatus
+-- Una fila por cada estatus que un reporte ha tenido (poblada por trigger,
+-- no por la app) -- reportes.estatus solo guarda el valor vigente, asi que
+-- sin esto no hay forma de saber cuantos reportes pasaron por cada estatus
+-- a lo largo de su vida para las metricas del panel admin.
+-- =============================================
+CREATE TABLE IF NOT EXISTS public.reportes_historial_estatus (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  reporte_id UUID NOT NULL REFERENCES public.reportes(id) ON DELETE CASCADE,
+  estatus TEXT NOT NULL CHECK (estatus IN ('pendiente', 'en_proceso', 'resuelto', 'dañado')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_historial_estatus_reporte_id ON public.reportes_historial_estatus(reporte_id);
+CREATE INDEX IF NOT EXISTS idx_historial_estatus_estatus ON public.reportes_historial_estatus(estatus);
+
+CREATE OR REPLACE FUNCTION public.registrar_historial_estatus()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.reportes_historial_estatus (reporte_id, estatus)
+  VALUES (NEW.id, NEW.estatus);
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql
+SET search_path = '';
+
+CREATE TRIGGER trg_historial_estatus_insert
+  AFTER INSERT ON public.reportes
+  FOR EACH ROW EXECUTE FUNCTION public.registrar_historial_estatus();
+
+CREATE TRIGGER trg_historial_estatus_update
+  AFTER UPDATE OF estatus ON public.reportes
+  FOR EACH ROW
+  WHEN (OLD.estatus IS DISTINCT FROM NEW.estatus)
+  EXECUTE FUNCTION public.registrar_historial_estatus();
+
+-- =============================================
 -- ROW LEVEL SECURITY (RLS)
 -- =============================================
 ALTER TABLE public.usuarios ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.edificios ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bote_mallas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reportes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.reportes_historial_estatus ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.eventos ENABLE ROW LEVEL SECURITY;
 
 -- Helper: obtener rol del usuario autenticado
@@ -296,6 +334,15 @@ CREATE POLICY "reportes: actualizar propio pendiente o admin"
 
 CREATE POLICY "reportes: admin elimina"
   ON public.reportes FOR DELETE
+  USING (get_user_rol() = 'administrador');
+
+-- -----------------------------------------------
+-- POLÍTICAS: reportes_historial_estatus
+-- -----------------------------------------------
+-- Solo lectura para admin (dato de metricas). Sin policy de escritura:
+-- solo el trigger de sync escribe aqui, mismo patron que bote_mallas.
+CREATE POLICY "reportes_historial_estatus: admin lee"
+  ON public.reportes_historial_estatus FOR SELECT
   USING (get_user_rol() = 'administrador');
 
 -- -----------------------------------------------
