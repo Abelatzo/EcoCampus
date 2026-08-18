@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto'
 import { fileTypeFromBuffer } from 'file-type'
 import { supabase } from '../config/supabase.js'
+import { createClient } from '@supabase/supabase-js'
 
 const MIME_A_EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }
 const BUCKET_FOTOS = 'reportes-fotos'
@@ -33,22 +34,23 @@ export const subirFoto = async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No se recibió ningún archivo' })
   }
-
   const tipo = await fileTypeFromBuffer(req.file.buffer)
   if (!tipo || !MIME_A_EXT[tipo.mime]) {
     return res.status(400).json({ error: 'Archivo inválido: solo se permiten imágenes JPEG, PNG o WEBP' })
   }
 
-  const nombreArchivo = `${req.user.id}/${randomUUID()}.${MIME_A_EXT[tipo.mime]}`
+  const clienteFresh = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    { auth: { persistSession: false } }
+  )
 
-  const { error } = await supabase.storage
+  const nombreArchivo = `${req.user.id}/${randomUUID()}.${MIME_A_EXT[tipo.mime]}`
+  const { error } = await clienteFresh.storage
     .from('reportes-fotos')
     .upload(nombreArchivo, req.file.buffer, { contentType: tipo.mime })
-
   if (error) return res.status(500).json({ error: error.message })
-
-  const { data } = supabase.storage.from('reportes-fotos').getPublicUrl(nombreArchivo)
-
+  const { data } = clienteFresh.storage.from('reportes-fotos').getPublicUrl(nombreArchivo)
   res.status(201).json({ foto_url: data.publicUrl })
 }
 
@@ -116,22 +118,28 @@ const tieneEmbedUsuarioIncompleto = (filas) =>
 // un bote/malla esta dañado para ubicarlo o atenderlo. Solo "resuelto"
 // se excluye, para no saturar la lista con reportes ya cerrados.
 export const obtenerActivos = async (req, res) => {
-  const consulta = () => supabase
-    .from('reportes')
-    .select(`
-      id,
-      titulo,
-      ubicacion,
-      descripcion,
-      foto_url,
-      estatus,
-      created_at,
-      usuario_id,
-      edificios (letra),
-      usuarios (nombre)
-    `)
-    .neq('estatus', 'resuelto')
-    .order('created_at', { ascending: false })
+  const clienteFresh = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    { auth: { persistSession: false } }
+  )
+  
+  const consulta = () => clienteFresh
+  .from('reportes')
+  .select(`
+    id,
+    titulo,
+    ubicacion,
+    descripcion,
+    foto_url,
+    estatus,
+    created_at,
+    usuario_id,
+    edificios (letra),
+    usuarios (nombre)
+  `)
+  .neq('estatus', 'resuelto')
+  .order('created_at', { ascending: false })
 
   let { data, error } = await consulta()
   if (!error && tieneEmbedUsuarioIncompleto(data)) {
@@ -169,7 +177,14 @@ export const crearReporte = async (req, res) => {
     return res.status(400).json({ error: `estatus debe ser uno de: ${estatusValidos.join(', ')}` })
   }
 
-  const { data, error } = await supabase
+
+  const clienteFresh = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  { auth: { persistSession: false } }
+)
+
+  const { data, error } = await clienteFresh
     .from('reportes')
     .insert({
       edificio_id,
@@ -203,13 +218,15 @@ export const actualizarEstatus = async (req, res) => {
     return res.status(400).json({ error: `estatus debe ser uno de: ${estatusValidos.join(', ')}` })
   }
 
-  // El estatus es un proceso colaborativo: cualquier usuario autenticado
-  // puede avanzarlo (pendiente -> en_proceso -> resuelto), no solo quien
-  // creo el reporte -- asi otros estudiantes que ven el bote atendido o
-  // resuelto pueden actualizarlo sin depender del autor original.
-  const { data: reporte, error: errorBuscar } = await supabase
+  const clienteFresh = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    { auth: { persistSession: false } }
+  )
+
+  const { data: reporte, error: errorBuscar } = await clienteFresh
     .from('reportes')
-    .select('id, foto_url')
+    .select('id, estatus, usuario_id')
     .eq('id', id)
     .single()
 
@@ -217,53 +234,19 @@ export const actualizarEstatus = async (req, res) => {
     return res.status(404).json({ error: 'Reporte no encontrado' })
   }
 
-  // Un reporte resuelto solo sirve como dato historico en el panel -- la
-  // foto ya no aporta nada y se queda ocupando el bucket para siempre si no
-  // se borra aqui (no hay ningun otro lugar del codigo que lo haga).
-  const debeBorrarFoto = estatus === 'resuelto' && !!reporte.foto_url
-
-  // UPDATE y SELECT de la respuesta van por separado. Se comprobo contra la
-  // base (Supabase SQL editor + logs de Railway/Supabase, PR de QA del
-  // 2026-08-15) que el UPDATE en si siempre se guarda bien -- lo que fallaba
-  // 100% de las veces (no intermitente) era combinar UPDATE+SELECT con los
-  // embeds (edificios/usuarios) y .single() en una sola llamada: PostgREST
-  // regresaba PGRST116 "0 rows" en el paso de armar el objeto con los joins
-  // aun cuando el UPDATE si habia afectado la fila (se confirmaba actualizada
-  // al releer despues). single() ademas lanza excepcion ante cualquier
-  // desajuste de conteo de filas; se evita por completo leyendo como arreglo
-  // y tomando el primer elemento.
-  const { error: errorUpdate } = await supabase
+  const { data, error } = await clienteFresh
     .from('reportes')
-    .update(debeBorrarFoto ? { estatus, foto_url: null } : { estatus })
+    .update({ estatus })
     .eq('id', id)
+    .select(`
+      id, titulo, ubicacion, descripcion,
+      foto_url, estatus, created_at, usuario_id,
+      edificios (letra), usuarios (nombre)
+    `)
+    .single()
 
-  if (errorUpdate) {
-    console.error(
-      `actualizarEstatus (update) fallo para reporte ${id} (usuario ${req.user.id}, estatus destino '${estatus}'):`,
-      errorUpdate.code, errorUpdate.message, errorUpdate.details, errorUpdate.hint
-    )
-    return res.status(500).json({ error: 'No se pudo actualizar el estatus, intenta de nuevo en unos segundos' })
-  }
-
-  if (debeBorrarFoto) await borrarFotoStorage(reporte.foto_url)
-
-  const { data: filas, error: errorSelect } = await supabase
-    .from('reportes')
-    .select('id, titulo, ubicacion, descripcion, foto_url, estatus, created_at, usuario_id, edificios (letra), usuarios (nombre)')
-    .eq('id', id)
-
-  if (errorSelect || !filas?.length) {
-    console.error(
-      `actualizarEstatus (select post-update) fallo para reporte ${id}:`,
-      errorSelect?.code, errorSelect?.message, errorSelect?.details, errorSelect?.hint
-    )
-    // El estatus ya se guardo (el UPDATE de arriba no dio error); solo fallo
-    // traer la fila para la respuesta -- se le avisa al cliente que refresque
-    // en vez de reportar un fallo del cambio en si.
-    return res.status(200).json({ estatus, advertencia: 'El estatus se actualizo pero no se pudo confirmar de inmediato, refresca para verlo' })
-  }
-
-  res.json(filas[0])
+  if (error) return res.status(500).json({ error: error.message })
+  res.json(data)
 }
 
 // PATCH /api/reportes/:id — editar titulo/descripcion/ubicacion
