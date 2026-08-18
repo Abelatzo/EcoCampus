@@ -21,8 +21,8 @@ export default function Register() {
       setError('Completa todos los campos')
       return
     }
-    if (!/^al[0-9]+@utcj\.edu\.mx$/i.test(email.trim())) {
-      setError('Usa tu correo institucional con formato al + matrícula (ej. al24311267@utcj.edu.mx)')
+    if (!/^[^\s@]+@utcj\.edu\.mx$/i.test(email.trim())) {
+      setError('Usa tu correo institucional @utcj.edu.mx')
       return
     }
     if (password !== confirmPassword) {
