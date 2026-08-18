@@ -91,6 +91,10 @@ export default function AdminUsers() {
   }
 
   const saveEdit = async () => {
+    if (!/^[^\s@]+@utcj\.edu\.mx$/i.test(editEmail.trim())) {
+      setErrorMsg('El correo debe ser institucional @utcj.edu.mx')
+      return
+    }
     setSaving(true)
     setErrorMsg('')
     try {
