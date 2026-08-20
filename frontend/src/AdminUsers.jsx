@@ -1,37 +1,32 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { cerrarSesion } from './session'
 import './AdminUsers.scss'
 
 const PAGE_SIZE = 8
 
-// Convierte el registro que manda el backend a la forma que ya consume la UI
 function mapUsuario(u) {
   return {
     id: u.id,
     name: u.nombre,
     email: u.email,
-    rolBackend: u.rol, // 'estudiante' | 'administrador' — lo necesitamos para mandar el PATCH correcto
     role: u.rol === 'administrador' ? 'Administrador' : 'Usuario',
     date: u.created_at
       ? new Date(u.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
-      : '—',
+      : '',
   }
 }
 
 export default function AdminUsers() {
   const navigate = useNavigate()
-  const token = localStorage.getItem('token')
+  const token = sessionStorage.getItem('token')
+  const usuario = JSON.parse(sessionStorage.getItem('usuario') || 'null')
   const API = import.meta.env.VITE_API_URL
-  const headers = {
-    'Authorization': `Bearer ${token}`,
-    'Content-Type': 'application/json'
-  }
+  const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
 
   const [userList, setUserList] = useState([])
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState('')
-  const [saving, setSaving] = useState(false)
-
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('Todos')
   const [page, setPage] = useState(1)
@@ -39,20 +34,16 @@ export default function AdminUsers() {
   const [editUser, setEditUser] = useState(null)
   const [editName, setEditName] = useState('')
   const [editEmail, setEditEmail] = useState('')
+  const [saving, setSaving] = useState(false)
 
   const [roleChangeTarget, setRoleChangeTarget] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
-
-  useEffect(() => {
-    if (!token) { navigate('/login'); return }
-    fetchUsuarios()
-  }, [])
 
   const fetchUsuarios = async () => {
     setLoading(true)
     setErrorMsg('')
     try {
-      const res = await fetch(`${API}/api/usuarios`, { headers, cache: 'no-store' })
+      const res = await fetch(`${API}/api/usuarios`, { headers })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
         throw new Error(err.error || `Error ${res.status}`)
@@ -65,6 +56,12 @@ export default function AdminUsers() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (!token) { navigate('/login'); return }
+    queueMicrotask(fetchUsuarios)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const filteredUsers = userList.filter((u) => {
     const term = search.trim().toLowerCase()
@@ -94,34 +91,35 @@ export default function AdminUsers() {
   }
 
   const saveEdit = async () => {
-    if (!editUser) return
+    if (!/^[^\s@]+@utcj\.edu\.mx$/i.test(editEmail.trim())) {
+      setErrorMsg('El correo debe ser institucional @utcj.edu.mx')
+      return
+    }
     setSaving(true)
     setErrorMsg('')
     try {
       const res = await fetch(`${API}/api/usuarios/${editUser.id}`, {
         method: 'PATCH',
         headers,
-        body: JSON.stringify({ nombre: editName.trim(), email: editEmail.trim() }),
+        body: JSON.stringify({ nombre: editName, email: editEmail }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
         throw new Error(err.error || `Error ${res.status}`)
       }
-      await fetchUsuarios()
       setEditUser(null)
+      await fetchUsuarios()
     } catch (err) {
-      setErrorMsg('No se pudo guardar la edición: ' + err.message)
+      setErrorMsg('No se pudo actualizar el usuario: ' + err.message)
     } finally {
       setSaving(false)
     }
   }
 
   const confirmRoleChange = async () => {
-    if (!roleChangeTarget) return
-    setSaving(true)
     setErrorMsg('')
     try {
-      const nuevoRol = roleChangeTarget.rolBackend === 'administrador' ? 'estudiante' : 'administrador'
+      const nuevoRol = roleChangeTarget.role === 'Administrador' ? 'estudiante' : 'administrador'
       const res = await fetch(`${API}/api/usuarios/${roleChangeTarget.id}/rol`, {
         method: 'PATCH',
         headers,
@@ -131,34 +129,27 @@ export default function AdminUsers() {
         const err = await res.json().catch(() => ({}))
         throw new Error(err.error || `Error ${res.status}`)
       }
-      await fetchUsuarios()
       setRoleChangeTarget(null)
+      await fetchUsuarios()
     } catch (err) {
       setErrorMsg('No se pudo cambiar el rol: ' + err.message)
-    } finally {
-      setSaving(false)
+      setRoleChangeTarget(null)
     }
   }
 
   const confirmDelete = async () => {
-    if (!deleteTarget) return
-    setSaving(true)
     setErrorMsg('')
     try {
-      const res = await fetch(`${API}/api/usuarios/${deleteTarget.id}`, {
-        method: 'DELETE',
-        headers,
-      })
+      const res = await fetch(`${API}/api/usuarios/${deleteTarget.id}`, { method: 'DELETE', headers })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
         throw new Error(err.error || `Error ${res.status}`)
       }
-      setUserList((prev) => prev.filter((u) => u.id !== deleteTarget.id))
       setDeleteTarget(null)
+      await fetchUsuarios()
     } catch (err) {
-      setErrorMsg('No se pudo desactivar la cuenta: ' + err.message)
-    } finally {
-      setSaving(false)
+      setErrorMsg('No se pudo eliminar el usuario: ' + err.message)
+      setDeleteTarget(null)
     }
   }
 
@@ -176,19 +167,19 @@ export default function AdminUsers() {
           <Link to="/admin/users" className="nav-item active">Usuarios</Link>
           <Link to="/admin/panel" className="nav-item">Panel</Link>
         </nav>
-        <div className="right">
-          <div className="username">Admin</div>
+        <button className="right user-menu" onClick={() => cerrarSesion(navigate)} title="Cerrar sesión">
+          <div className="username">{usuario?.nombre || 'Admin'}</div>
           <div className="avatar admin-avatar" aria-hidden="true" />
-        </div>
+        </button>
       </header>
+
+      {errorMsg && <p className="no-results" style={{ color: 'var(--red, #d9362e)', padding: '8px 24px' }}>{errorMsg}</p>}
 
       <div className="page-content">
         <div className="page-header">
           <h2>Gestión de Usuarios</h2>
           <p className="subtitle">Administra los usuarios registrados en EcoCampus</p>
         </div>
-
-        {errorMsg && <p className="error-banner">{errorMsg}</p>}
 
         <div className="toolbar">
           <div className="search-bar">
@@ -204,26 +195,28 @@ export default function AdminUsers() {
           <span className="count">{filteredUsers.length} usuarios registrados</span>
         </div>
 
-        {loading && <p className="loading-text">Cargando usuarios...</p>}
-
-        {!loading && (
-          <div className="table-wrap">
-            <table className="users-table">
-              <thead>
-                <tr>
-                  <th className="col-num">#</th>
-                  <th>Nombre completo</th>
-                  <th>Correo institucional</th>
-                  <th>Rol</th>
-                  <th>Fecha registro</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pageUsers.length === 0 && (
-                  <tr><td colSpan={6} className="no-results">No se encontraron usuarios.</td></tr>
-                )}
-                {pageUsers.map((u, i) => (
+        <div className="table-wrap">
+          <table className="users-table">
+            <thead>
+              <tr>
+                <th className="col-num">#</th>
+                <th>Nombre completo</th>
+                <th>Correo institucional</th>
+                <th>Rol</th>
+                <th>Fecha registro</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading && (
+                <tr><td colSpan={6} className="no-results">Cargando usuarios...</td></tr>
+              )}
+              {!loading && pageUsers.length === 0 && (
+                <tr><td colSpan={6} className="no-results">No se encontraron usuarios.</td></tr>
+              )}
+              {pageUsers.map((u, i) => {
+                const esUnoMismo = u.id === usuario?.id
+                return (
                   <tr key={u.id}>
                     <td className="col-num">{(currentPage - 1) * PAGE_SIZE + i + 1}</td>
                     <td>{u.name}</td>
@@ -240,26 +233,33 @@ export default function AdminUsers() {
                         <button
                           className={`btn action ${u.role === 'Administrador' ? 'demote' : 'promote'}`}
                           onClick={() => setRoleChangeTarget(u)}
+                          disabled={esUnoMismo}
+                          title={esUnoMismo ? 'No puedes cambiar tu propio rol' : ''}
                         >
                           {u.role === 'Administrador' ? '→ Usuario' : '→ Admin'}
                         </button>
-                        <button className="btn action delete" onClick={() => setDeleteTarget(u)}>🗑 Eliminar</button>
+                        <button
+                          className="btn action delete"
+                          onClick={() => setDeleteTarget(u)}
+                          disabled={esUnoMismo}
+                          title={esUnoMismo ? 'No puedes eliminar tu propia cuenta' : ''}
+                        >
+                          🗑 Eliminar
+                        </button>
                       </div>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
 
-        {!loading && (
-          <div className="pagination">
-            <a href="#" className="page-link" onClick={(e) => { e.preventDefault(); setPage((p) => Math.max(1, p - 1)) }}>← Anterior</a>
-            <span className="page-count">Página {currentPage} de {totalPages}</span>
-            <a href="#" className="page-link" onClick={(e) => { e.preventDefault(); setPage((p) => Math.min(totalPages, p + 1)) }}>Siguiente →</a>
-          </div>
-        )}
+        <div className="pagination">
+          <a href="#" className="page-link" onClick={(e) => { e.preventDefault(); setPage((p) => Math.max(1, p - 1)) }}>← Anterior</a>
+          <span className="page-count">Página {currentPage} de {totalPages}</span>
+          <a href="#" className="page-link" onClick={(e) => { e.preventDefault(); setPage((p) => Math.min(totalPages, p + 1)) }}>Siguiente →</a>
+        </div>
       </div>
 
       {editUser && (
@@ -283,8 +283,10 @@ export default function AdminUsers() {
             </div>
 
             <div className="modal-actions">
-              <button className="btn outline" onClick={() => setEditUser(null)} disabled={saving}>Cancelar</button>
-              <button className="btn primary" onClick={saveEdit} disabled={saving}>{saving ? 'Guardando...' : 'Guardar cambios'}</button>
+              <button className="btn outline" onClick={() => setEditUser(null)}>Cancelar</button>
+              <button className="btn primary" onClick={saveEdit} disabled={saving}>
+                {saving ? 'Guardando...' : 'Guardar cambios'}
+              </button>
             </div>
           </div>
         </div>
@@ -307,8 +309,8 @@ export default function AdminUsers() {
             </div>
 
             <div className="modal-actions">
-              <button className="btn outline" onClick={() => setRoleChangeTarget(null)} disabled={saving}>Cancelar</button>
-              <button className="btn primary" onClick={confirmRoleChange} disabled={saving}>{saving ? 'Aplicando...' : 'Sí, continuar'}</button>
+              <button className="btn outline" onClick={() => setRoleChangeTarget(null)}>Cancelar</button>
+              <button className="btn primary" onClick={confirmRoleChange}>Sí, continuar</button>
             </div>
           </div>
         </div>
@@ -318,19 +320,19 @@ export default function AdminUsers() {
         <div className="modal-overlay">
           <div className="modal confirm-modal">
             <div className="modal-header">
-              <h3>Desactivar usuario</h3>
+              <h3>Eliminar usuario</h3>
               <button className="modal-close" onClick={() => setDeleteTarget(null)}>✕</button>
             </div>
 
             <div className="modal-body">
               <p className="confirm-text">
-                ¿Seguro que quieres desactivar la cuenta de <strong>{deleteTarget.name}</strong>? Perderá acceso al sistema y esta acción no se puede deshacer.
+                ¿Seguro que quieres eliminar a <strong>{deleteTarget.name}</strong>? Esta acción no se puede deshacer.
               </p>
             </div>
 
             <div className="modal-actions">
-              <button className="btn outline" onClick={() => setDeleteTarget(null)} disabled={saving}>Cancelar</button>
-              <button className="btn danger" onClick={confirmDelete} disabled={saving}>{saving ? 'Desactivando...' : 'Sí, desactivar'}</button>
+              <button className="btn outline" onClick={() => setDeleteTarget(null)}>Cancelar</button>
+              <button className="btn danger" onClick={confirmDelete}>Sí, eliminar</button>
             </div>
           </div>
         </div>

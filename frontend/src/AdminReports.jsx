@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { useReports, ADMIN_USER } from './reportsStore'
+import { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useReports, TYPE_TO_ESTATUS } from './reportsStore'
+import { cerrarSesion } from './session'
 import './AdminReports.scss'
 
 const states = [
@@ -19,8 +20,85 @@ const buildingLetters = buildings.map((b) => b.replace('Edificio ', ''))
 
 const PAGE_SIZE = 4
 
+const PERIODOS = [
+  { value: 'semana', label: 'Última semana' },
+  { value: 'mes', label: 'Último mes' },
+  { value: 'anio', label: 'Último año' },
+  { value: 'historico', label: 'Histórico' },
+]
+
+// Fecha ISO de inicio del periodo (null = sin limite, historico)
+function desdePeriodo(periodo) {
+  const ahora = new Date()
+  if (periodo === 'semana') ahora.setDate(ahora.getDate() - 7)
+  else if (periodo === 'mes') ahora.setMonth(ahora.getMonth() - 1)
+  else if (periodo === 'anio') ahora.setFullYear(ahora.getFullYear() - 1)
+  else return null
+  return ahora.toISOString()
+}
+
+function csvEscape(valor) {
+  const texto = valor === null || valor === undefined ? '' : String(valor)
+  return /[",\n]/.test(texto) ? `"${texto.replace(/"/g, '""')}"` : texto
+}
+
+function reportesACSV(reportes) {
+  const columnas = ['Título', 'Edificio', 'Ubicación', 'Descripción', 'Estado', 'Reportado por', 'Correo', 'Creado', 'Última actualización']
+  const filas = reportes.map((r) => [
+    r.titulo,
+    r.edificios?.letra || '',
+    r.ubicacion || '',
+    r.descripcion || '',
+    r.estatus,
+    r.usuarios?.nombre || '',
+    r.usuarios?.email || '',
+    r.created_at ? new Date(r.created_at).toLocaleString('es-MX') : '',
+    r.updated_at ? new Date(r.updated_at).toLocaleString('es-MX') : '',
+  ])
+  return [columnas, ...filas].map((fila) => fila.map(csvEscape).join(',')).join('\r\n')
+}
+
 export default function ReportsAdmin() {
-  const { reports, addReport, updateReport, deleteReport, deleteReports } = useReports()
+  const navigate = useNavigate()
+  const usuario = JSON.parse(sessionStorage.getItem('usuario') || 'null')
+  const { reports, loading, errorMsg, addReport, updateReport, deleteReport, deleteReports } = useReports()
+  const token = sessionStorage.getItem('token')
+  const API = import.meta.env.VITE_API_URL
+
+  const [exportPeriodo, setExportPeriodo] = useState('semana')
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState('')
+
+  const exportarCSV = async () => {
+    setExporting(true)
+    setExportError('')
+    try {
+      const desde = desdePeriodo(exportPeriodo)
+      const url = new URL(`${API}/api/admin/reportes`)
+      if (desde) url.searchParams.set('desde', desde)
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || `Error ${res.status}`)
+      }
+      const data = await res.json()
+      const csv = '﻿' + reportesACSV(Array.isArray(data) ? data : [])
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+      const enlace = document.createElement('a')
+      enlace.href = URL.createObjectURL(blob)
+      enlace.download = `reportes-ecocampus-${exportPeriodo}-${new Date().toISOString().slice(0, 10)}.csv`
+      enlace.click()
+      URL.revokeObjectURL(enlace.href)
+    } catch (err) {
+      setExportError('No se pudo exportar: ' + err.message)
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!sessionStorage.getItem('token')) navigate('/login')
+  }, [navigate])
 
   const [showModal, setShowModal] = useState(false)
   const [building, setBuilding] = useState(buildings[0])
@@ -41,6 +119,7 @@ export default function ReportsAdmin() {
   const [statusFilter, setStatusFilter] = useState([])
   const [buildingDraft, setBuildingDraft] = useState([])
   const [buildingFilter, setBuildingFilter] = useState([])
+  const [searchTerm, setSearchTerm] = useState('')
   const [page, setPage] = useState(1)
 
   const [selectedIds, setSelectedIds] = useState([])
@@ -64,9 +143,14 @@ export default function ReportsAdmin() {
     setPage(1)
   }
 
+  const normalizedSearch = searchTerm.trim().toLowerCase()
   const filteredReportList = reports.filter((r) =>
     (statusFilter.length === 0 || statusFilter.includes(r.statusType)) &&
-    (buildingFilter.length === 0 || buildingFilter.includes(r.building))
+    (buildingFilter.length === 0 || buildingFilter.includes(r.building)) &&
+    (normalizedSearch === '' ||
+      r.title.toLowerCase().includes(normalizedSearch) ||
+      (r.building || '').toLowerCase().includes(normalizedSearch) ||
+      r.author.toLowerCase().includes(normalizedSearch))
   )
 
   const totalPages = Math.max(1, Math.ceil(filteredReportList.length / PAGE_SIZE))
@@ -105,16 +189,13 @@ export default function ReportsAdmin() {
 
   const createReport = () => {
     if (!newTitle.trim()) return
-    const state = states.find((s) => s.type === reportStatus)
     addReport({
       title: newTitle.trim(),
-      location: newLocationDetail.trim() ? `${building} · ${newLocationDetail.trim()}` : building,
       building: building.replace('Edificio ', ''),
-      status: state.label,
-      statusType: state.type,
-      author: ADMIN_USER,
+      locationDetail: newLocationDetail.trim(),
+      estatus: TYPE_TO_ESTATUS[reportStatus],
       description: newDescription.trim() || 'Sin descripción adicional.',
-      image: newImage ? URL.createObjectURL(newImage) : null,
+      image: newImage,
     })
     closeNewReportModal()
   }
@@ -144,11 +225,13 @@ export default function ReportsAdmin() {
           <Link to="/admin/users" className="nav-item">Usuarios</Link>
           <Link to="/admin/panel" className="nav-item">Panel</Link>
         </nav>
-        <div className="right">
-          <div className="username">Admin</div>
+        <button className="right user-menu" onClick={() => cerrarSesion(navigate)} title="Cerrar sesión">
+          <div className="username">{usuario?.nombre || 'Admin'}</div>
           <div className="avatar admin-avatar" aria-hidden="true" />
-        </div>
+        </button>
       </header>
+
+      {errorMsg && <p className="no-results" style={{ color: 'var(--red, #d9362e)', padding: '8px 24px' }}>{errorMsg}</p>}
 
       <div className="container">
         <aside className="sidebar left">
@@ -181,7 +264,19 @@ export default function ReportsAdmin() {
 
           <div className="admin-tools">
             <div className="admin-tools-title">⚙ Admin</div>
-            <button className="btn tool export">Exportar reportes (.csv)</button>
+            <select
+              className="export-period"
+              value={exportPeriodo}
+              onChange={(e) => setExportPeriodo(e.target.value)}
+            >
+              {PERIODOS.map((p) => (
+                <option key={p.value} value={p.value}>{p.label}</option>
+              ))}
+            </select>
+            <button className="btn tool export" onClick={exportarCSV} disabled={exporting}>
+              {exporting ? 'Exportando...' : 'Exportar reportes (.csv)'}
+            </button>
+            {exportError && <p className="export-error">{exportError}</p>}
             <button
               className="btn tool delete"
               onClick={() => selectedIds.length > 0 && setBulkDeleteConfirm(true)}
@@ -201,11 +296,16 @@ export default function ReportsAdmin() {
           </div>
 
           <div className="search-bar">
-            <input placeholder="Buscar por título, edificio o usuario..." />
+            <input
+              placeholder="Buscar por título, edificio o usuario..."
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setPage(1) }}
+            />
           </div>
 
           <div className="report-list">
-            {filteredReportList.length === 0 && <p className="no-results">No hay reportes con ese estado.</p>}
+            {loading && <p className="no-results">Cargando reportes...</p>}
+            {!loading && filteredReportList.length === 0 && <p className="no-results">No hay reportes con ese estado.</p>}
             {pageReportList.map((report) => (
               <article key={report.id} className="report-card">
                 <div className={`status-side ${report.statusType}`} />
@@ -250,9 +350,7 @@ export default function ReportsAdmin() {
                     <div className="card-actions">
                       <div className="action-buttons">
                         <button className="btn outline" onClick={() => setDetailReport(report)}>Ver detalle</button>
-                        {report.author === ADMIN_USER && (
-                          <button className="btn primary" onClick={() => openEdit(report)}>Actualizar</button>
-                        )}
+                        <button className="btn primary" onClick={() => openEdit(report)}>Actualizar</button>
                         <button className="btn danger" onClick={() => setDeleteTarget(report)}>🗑 Eliminar</button>
                       </div>
                     </div>

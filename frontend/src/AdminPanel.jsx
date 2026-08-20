@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useNavigate } from 'react-router-dom'
+import { cerrarSesion } from './session'
 import './AdminPanel.scss'
 
 const statusMap = {
@@ -12,13 +13,32 @@ const statusMap = {
 
 const estatusPointMap = {
   disponible: { label: 'Disponible', statusClass: 'available' },
-  saturado: { label: 'Saturado', statusClass: 'full' },
+  pendiente: { label: 'Pendiente', statusClass: 'pending' },
+  en_proceso: { label: 'En proceso', statusClass: 'progress' },
   dañado: { label: 'Dañado', statusClass: 'damaged' },
+}
+
+const PERIODOS = [
+  { value: 'semana', label: 'Última semana' },
+  { value: 'mes', label: 'Último mes' },
+  { value: 'anio', label: 'Último año' },
+  { value: 'historico', label: 'Histórico' },
+]
+
+// Fecha ISO de inicio del periodo (null = sin limite, historico)
+function desdePeriodo(periodo) {
+  const ahora = new Date()
+  if (periodo === 'semana') ahora.setDate(ahora.getDate() - 7)
+  else if (periodo === 'mes') ahora.setMonth(ahora.getMonth() - 1)
+  else if (periodo === 'anio') ahora.setFullYear(ahora.getFullYear() - 1)
+  else return null
+  return ahora.toISOString()
 }
 
 export default function AdminPanel() {
   const navigate = useNavigate()
-  const token = localStorage.getItem('token')
+  const token = sessionStorage.getItem('token')
+  const usuario = JSON.parse(sessionStorage.getItem('usuario') || 'null')
 
   const [stats, setStats] = useState(null)
   const [totalUsuarios, setTotalUsuarios] = useState(0)
@@ -26,6 +46,7 @@ export default function AdminPanel() {
   const [points, setPoints] = useState([])
   const [eventos, setEventos] = useState([])
   const [loading, setLoading] = useState(true)
+  const [periodo, setPeriodo] = useState('mes')
 
   const API = import.meta.env.VITE_API_URL
 
@@ -34,16 +55,20 @@ export default function AdminPanel() {
     'Content-Type': 'application/json'
   }
 
-  useEffect(() => {
-    if (!token) { navigate('/login'); return }
-    fetchAll()
-  }, [])
-
   const fetchAll = async () => {
+    setLoading(true)
     try {
+      const desde = desdePeriodo(periodo)
+      const reportesUrl = new URL(`${API}/api/admin/reportes`)
+      const statsUrl = new URL(`${API}/api/admin/estadisticas`)
+      if (desde) {
+        reportesUrl.searchParams.set('desde', desde)
+        statsUrl.searchParams.set('desde', desde)
+      }
+
       const [statsRes, reportesRes, botesRes, usuariosRes, eventosRes] = await Promise.all([
-        fetch(`${API}/api/admin/estadisticas`, { headers }),
-        fetch(`${API}/api/admin/reportes`, { headers }),
+        fetch(statsUrl, { headers }),
+        fetch(reportesUrl, { headers }),
         fetch(`${API}/api/admin/bote-mallas`, { headers }),
         fetch(`${API}/api/usuarios`, { headers }),
         fetch(`${API}/api/eventos`, { headers }),
@@ -58,7 +83,7 @@ export default function AdminPanel() {
       setStats(statsData)
       setTotalUsuarios(Array.isArray(usuariosData) ? usuariosData.length : 0)
       setLastReports(Array.isArray(reportesData) ? reportesData.slice(0, 5) : [])
-      setPoints(Array.isArray(botesData) ? botesData.slice(0, 5) : [])
+      setPoints(Array.isArray(botesData) ? botesData : [])
       setEventos(Array.isArray(eventosData) ? eventosData.slice(0, 4) : [])
     } catch (err) {
       console.error('Error cargando panel:', err)
@@ -66,6 +91,14 @@ export default function AdminPanel() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (!token) { navigate('/login'); return }
+    queueMicrotask(fetchAll)
+    const interval = setInterval(fetchAll, 15000)
+    return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [periodo])
 
   const barChart = stats ? [
     { label: 'Pendiente', value: stats.pendientes || 0, color: 'orange' },
@@ -104,16 +137,23 @@ export default function AdminPanel() {
           <Link to="/admin/users" className="nav-item">Usuarios</Link>
           <Link to="/admin/panel" className="nav-item active">Panel</Link>
         </nav>
-        <div className="right">
-          <div className="username">Admin</div>
+        <button className="right user-menu" onClick={() => cerrarSesion(navigate)} title="Cerrar sesión">
+          <div className="username">{usuario?.nombre || 'Admin'}</div>
           <div className="avatar admin-avatar" aria-hidden="true" />
-        </div>
+        </button>
       </header>
 
       <div className="page-content">
         <div className="page-header">
-          <h2>Panel Administrativo</h2>
-          <p className="subtitle">Resumen general del sistema EcoCampus — UTCJ</p>
+          <div>
+            <h2>Panel Administrativo</h2>
+            <p className="subtitle">Resumen general del sistema EcoCampus — UTCJ</p>
+          </div>
+          <select className="period-select" value={periodo} onChange={(e) => setPeriodo(e.target.value)}>
+            {PERIODOS.map((p) => (
+              <option key={p.value} value={p.value}>{p.label}</option>
+            ))}
+          </select>
         </div>
 
         <div className="stats-grid">
@@ -131,7 +171,7 @@ export default function AdminPanel() {
         <div className="mid-grid">
           <div className="panel-card chart-card">
             <h3>Reportes por estado</h3>
-            <p className="card-subtitle">Últimos 30 días</p>
+            <p className="card-subtitle">{PERIODOS.find((p) => p.value === periodo)?.label}</p>
             <div className="bar-chart">
               {barChart.map((b) => (
                 <div key={b.label} className="bar-col">
@@ -175,7 +215,7 @@ export default function AdminPanel() {
                 const s = estatusPointMap[p.estatus] || { label: p.estatus, statusClass: 'available' }
                 return (
                   <li key={p.id} className={`list-row ${s.statusClass}`}>
-                    <div className="list-title">{p.edificios?.letra} · {p.nombre}</div>
+                    <div className="list-title">Edificio {p.edificios?.letra}</div>
                     <span className={`pill ${s.statusClass}`}>{s.label}</span>
                   </li>
                 )

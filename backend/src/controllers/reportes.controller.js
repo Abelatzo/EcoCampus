@@ -1,4 +1,58 @@
-import { supabase, supabaseAsUser } from '../config/supabase.js'
+import { randomUUID } from 'crypto'
+import { fileTypeFromBuffer } from 'file-type'
+import { supabase } from '../config/supabase.js'
+import { createClient } from '@supabase/supabase-js'
+
+const MIME_A_EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }
+const BUCKET_FOTOS = 'reportes-fotos'
+
+// Extrae el path dentro del bucket a partir de la URL publica que devuelve
+// getPublicUrl (".../object/public/reportes-fotos/<path>") -- es lo que
+// storage.remove() necesita, no la URL completa.
+const pathDesdeFotoUrl = (foto_url) => {
+  if (!foto_url) return null
+  const marcador = `/object/public/${BUCKET_FOTOS}/`
+  const i = foto_url.indexOf(marcador)
+  return i === -1 ? null : foto_url.slice(i + marcador.length)
+}
+
+// Borra la foto del bucket si existe. No hay policy de DELETE por usuario
+// (solo INSERT/SELECT), asi que corre con el cliente de service role. Si
+// falla, se loguea pero no se interrumpe la operacion principal (borrar/
+// resolver el reporte) por un problema de limpieza de storage.
+const borrarFotoStorage = async (foto_url) => {
+  const path = pathDesdeFotoUrl(foto_url)
+  if (!path) return
+  const { error } = await supabase.storage.from(BUCKET_FOTOS).remove([path])
+  if (error) console.error(`borrarFotoStorage fallo para '${path}':`, error.message)
+}
+
+// POST /api/reportes/foto — subir foto de un reporte
+// El Content-Type que manda el navegador es spoofeable; se detecta el
+// MIME real por firma binaria (magic bytes) antes de aceptar el archivo.
+export const subirFoto = async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No se recibió ningún archivo' })
+  }
+  const tipo = await fileTypeFromBuffer(req.file.buffer)
+  if (!tipo || !MIME_A_EXT[tipo.mime]) {
+    return res.status(400).json({ error: 'Archivo inválido: solo se permiten imágenes JPEG, PNG o WEBP' })
+  }
+
+  const clienteFresh = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    { auth: { persistSession: false } }
+  )
+
+  const nombreArchivo = `${req.user.id}/${randomUUID()}.${MIME_A_EXT[tipo.mime]}`
+  const { error } = await clienteFresh.storage
+    .from('reportes-fotos')
+    .upload(nombreArchivo, req.file.buffer, { contentType: tipo.mime })
+  if (error) return res.status(500).json({ error: error.message })
+  const { data } = clienteFresh.storage.from('reportes-fotos').getPublicUrl(nombreArchivo)
+  res.status(201).json({ foto_url: data.publicUrl })
+}
 
 // Helper: resolver edificio_id desde letra
 const resolverEdificio = async (letra) => {
@@ -11,45 +65,86 @@ const resolverEdificio = async (letra) => {
   return data?.id || null
 }
 
-// GET /api/reportes/mapa — estado actual de todos los bote-mallas (polling)
+// GET /api/reportes/mapa — estado agregado por edificio para el mapa (polling)
+// El estatus viene de bote_mallas (mantenido por el trigger de sync), los
+// reportes activos van anidados para el desplegable de multiples reportes.
 export const estadoMapa = async (req, res) => {
   const { data, error } = await supabase
-    .from('bote_mallas')
+    .from('edificios')
     .select(`
       id,
-      nombre,
-      latitud,
-      longitud,
-      tipo,
-      estatus,
-      edificios (letra)
+      letra,
+      pos_x,
+      pos_y,
+      bote_mallas (estatus),
+      reportes (id, titulo, descripcion, estatus, created_at)
     `)
-    .order('created_at')
+    .order('letra')
 
   if (error) return res.status(500).json({ error: error.message })
-  res.json(data)
+
+  const resultado = data.map((e) => {
+    const boteMalla = Array.isArray(e.bote_mallas) ? e.bote_mallas[0] : e.bote_mallas
+    return {
+      edificio_id: e.id,
+      letra: e.letra,
+      pos_x: e.pos_x,
+      pos_y: e.pos_y,
+      estatus: boteMalla?.estatus || 'disponible',
+      reportes: (e.reportes || [])
+        .filter((r) => r.estatus !== 'resuelto')
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),
+    }
+  })
+
+  res.json(resultado)
 }
 
-// GET /api/reportes — reportes activos (pendiente o en_proceso)
-export const obtenerActivos = async (req, res) => {
-  const token = req.headers.authorization?.split(' ')[1]
-  const client = supabaseAsUser(token)
+// QA 2026-08-16: misma condicion de carrera que se aislo y mitigo en
+// verificarAuth (ver middlewares/auth.js) -- bajo peticiones concurrentes
+// al cliente de Supabase, el embed usuarios(nombre) a veces regresa null
+// para un usuario que si existe ("Desconocido" en la UI). reportes.usuario_id
+// es NOT NULL (siempre hay autor), asi que cualquier fila sin su embed
+// esta rota -- un reintento entero de la consulta casi siempre la resuelve.
+const tieneEmbedUsuarioIncompleto = (filas) =>
+  (filas || []).some((f) => !f.usuarios)
 
-  const { data, error } = await client
-    .from('reportes')
-    .select(`
-      id,
-      titulo,
-      ubicacion,
-      descripcion,
-      foto_url,
-      estatus,
-      created_at,
-      edificios (letra),
-      usuarios (nombre, email)
-    `)
-    .in('estatus', ['pendiente', 'en_proceso'])
-    .order('created_at', { ascending: false })
+// GET /api/reportes — reportes activos (todo excepto resuelto)
+// Se muestran los de TODOS los usuarios (no solo el propio) para que
+// cualquiera pueda avanzar el estatus -- por eso se usa el cliente con
+// service role: la tabla usuarios tiene RLS que solo deja leer la fila
+// propia, y aqui necesitamos el nombre (no el email) de cada autor.
+// "dañado" se incluye a proposito: los estudiantes deben poder ver si
+// un bote/malla esta dañado para ubicarlo o atenderlo. Solo "resuelto"
+// se excluye, para no saturar la lista con reportes ya cerrados.
+export const obtenerActivos = async (req, res) => {
+  const clienteFresh = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    { auth: { persistSession: false } }
+  )
+  
+  const consulta = () => clienteFresh
+  .from('reportes')
+  .select(`
+    id,
+    titulo,
+    ubicacion,
+    descripcion,
+    foto_url,
+    estatus,
+    created_at,
+    usuario_id,
+    edificios (letra),
+    usuarios (nombre)
+  `)
+  .neq('estatus', 'resuelto')
+  .order('created_at', { ascending: false })
+
+  let { data, error } = await consulta()
+  if (!error && tieneEmbedUsuarioIncompleto(data)) {
+    ({ data, error } = await consulta())
+  }
 
   if (error) return res.status(500).json({ error: error.message })
   res.json(data)
@@ -82,7 +177,14 @@ export const crearReporte = async (req, res) => {
     return res.status(400).json({ error: `estatus debe ser uno de: ${estatusValidos.join(', ')}` })
   }
 
-  const { data, error } = await supabase
+
+  const clienteFresh = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  { auth: { persistSession: false } }
+)
+
+  const { data, error } = await clienteFresh
     .from('reportes')
     .insert({
       edificio_id,
@@ -96,7 +198,13 @@ export const crearReporte = async (req, res) => {
     .select()
     .single()
 
-  if (error) return res.status(500).json({ error: error.message })
+  if (error) {
+    console.error(
+      `crearReporte fallo (usuario ${req.user.id}, edificio '${edificio}', estatus '${estatusInicial}'):`,
+      error.code, error.message, error.details, error.hint
+    )
+    return res.status(500).json({ error: error.message })
+  }
   res.status(201).json(data)
 }
 
@@ -110,7 +218,13 @@ export const actualizarEstatus = async (req, res) => {
     return res.status(400).json({ error: `estatus debe ser uno de: ${estatusValidos.join(', ')}` })
   }
 
-  const { data: reporte, error: errorBuscar } = await supabase
+  const clienteFresh = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    { auth: { persistSession: false } }
+  )
+
+  const { data: reporte, error: errorBuscar } = await clienteFresh
     .from('reportes')
     .select('id, estatus, usuario_id')
     .eq('id', id)
@@ -120,20 +234,15 @@ export const actualizarEstatus = async (req, res) => {
     return res.status(404).json({ error: 'Reporte no encontrado' })
   }
 
-  if (req.user.rol !== 'administrador') {
-    if (reporte.usuario_id !== req.user.id) {
-      return res.status(403).json({ error: 'No puedes modificar reportes de otros usuarios' })
-    }
-    if (reporte.estatus !== 'pendiente') {
-      return res.status(403).json({ error: 'Solo puedes modificar reportes en estado pendiente' })
-    }
-  }
-
-  const { data, error } = await supabase
+  const { data, error } = await clienteFresh
     .from('reportes')
     .update({ estatus })
     .eq('id', id)
-    .select()
+    .select(`
+      id, titulo, ubicacion, descripcion,
+      foto_url, estatus, created_at, usuario_id,
+      edificios (letra), usuarios (nombre)
+    `)
     .single()
 
   if (error) return res.status(500).json({ error: error.message })
@@ -194,9 +303,9 @@ export const editarReporte = async (req, res) => {
 export const eliminarReporte = async (req, res) => {
   const { id } = req.params
 
-  const { error: errorBuscar } = await supabase
+  const { data: reporte, error: errorBuscar } = await supabase
     .from('reportes')
-    .select('id')
+    .select('id, foto_url')
     .eq('id', id)
     .single()
 
@@ -205,9 +314,12 @@ export const eliminarReporte = async (req, res) => {
   const { error } = await supabase
     .from('reportes')
     .delete()
-    .eq('id', id)
+    .eq('id', reporte.id)
 
   if (error) return res.status(500).json({ error: error.message })
+
+  if (reporte.foto_url) await borrarFotoStorage(reporte.foto_url)
+
   res.json({ message: 'Reporte eliminado correctamente' })
 }
 
@@ -244,7 +356,10 @@ export const historial = async (req, res) => {
   if (hasta) query = query.lte('created_at', hasta)
   if (edificio_id) query = query.eq('edificio_id', edificio_id)
 
-  const { data, error } = await query
+  let { data, error } = await query
+  if (!error && tieneEmbedUsuarioIncompleto(data)) {
+    ({ data, error } = await query)
+  }
   if (error) return res.status(500).json({ error: error.message })
   res.json(data)
 }

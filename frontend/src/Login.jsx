@@ -26,8 +26,8 @@ export default function Login() {
         return
       }
 
-      localStorage.setItem('token', data.token)
-      localStorage.setItem('usuario', JSON.stringify(data.usuario))
+      sessionStorage.setItem('token', data.token)
+      sessionStorage.setItem('usuario', JSON.stringify(data.usuario))
 
       if (data.usuario.rol === 'administrador') {
         navigate('/admin')
@@ -35,7 +35,7 @@ export default function Login() {
         navigate('/map')
       }
 
-    } catch (err) {
+    } catch {
       setError('Error al conectar con el servidor')
     }
   }
@@ -76,8 +76,6 @@ export default function Login() {
                 onChange={(e) => setPassword(e.target.value)}
               />
             </label>
-
-            {error && <p style={{ color: 'red', fontSize: '14px' }}>{error}</p>}
 
             {error && <p style={{ color: 'red', fontSize: '14px' }}>{error}</p>}
 

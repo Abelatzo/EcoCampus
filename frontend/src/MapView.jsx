@@ -1,8 +1,10 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import campusMap from './assets/ImagenMapa.jpeg'
-import { useDraggableBackground } from './useDraggableBackground'
+import { useDraggableMap } from './useDraggableMap'
 import { useReports } from './reportsStore'
+import EdificioMarcadores from './EdificioMarcadores'
+import { cerrarSesion } from './session'
 import './MapView.scss'
 
 const reportStates = [
@@ -13,23 +15,82 @@ const reportStates = [
 ]
 
 const statusDotClass = { pending: 'orange', 'in-progress': 'blue', resolved: 'green', damaged: 'red' }
+// El filtro de "Estado del reporte" usa los tipos de reportes (pending/in-progress/
+// resolved/damaged); el estado agregado del edificio (bote_mallas.estatus) usa otro
+// vocabulario (pendiente/en_proceso/disponible/dañado). Mapeo entre ambos para poder
+// filtrar los marcadores del mapa con el mismo checkbox.
+const FILTER_TYPE_TO_ESTATUS = { pending: 'pendiente', 'in-progress': 'en_proceso', resolved: 'disponible', damaged: 'dañado' }
 const MAX_ACTIVE_REPORTS = 6
+const POLL_MS = 15000
 
 export default function MapView() {
+  const navigate = useNavigate()
+  const usuario = JSON.parse(sessionStorage.getItem('usuario') || 'null')
   const { reports } = useReports()
-  const { position, onPointerDown, onPointerMove, onPointerUp } = useDraggableBackground()
+  const { offset, containerRef, imageRef, onPointerDown, onPointerMove, onPointerUp } = useDraggableMap()
   const [statusDraft, setStatusDraft] = useState([])
   const [statusFilter, setStatusFilter] = useState([])
+  const [edificios, setEdificios] = useState([])
+  const [searchTerm, setSearchTerm] = useState('')
+
+  const token = sessionStorage.getItem('token')
+  const API = import.meta.env.VITE_API_URL
+  const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+
+  useEffect(() => {
+    if (!token) { navigate('/login'); return }
+    let activo = true
+    const fetchMapa = async () => {
+      try {
+        const res = await fetch(`${API}/api/reportes/mapa`, { headers })
+        if (!res.ok) return
+        const data = await res.json()
+        if (activo) setEdificios(Array.isArray(data) ? data : [])
+      } catch {
+        // el proximo poll reintenta
+      }
+    }
+    queueMicrotask(fetchMapa)
+    const interval = setInterval(fetchMapa, POLL_MS)
+    return () => { activo = false; clearInterval(interval) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const toggleStatus = (type) => {
     setStatusDraft((prev) => (prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]))
   }
 
+  const normalizedSearch = searchTerm.trim().toLowerCase()
   const activeReports = reports.filter((r) => r.statusType !== 'resolved')
   const filteredReports = (statusFilter.length === 0
     ? activeReports
     : activeReports.filter((r) => statusFilter.includes(r.statusType))
+  ).filter((r) =>
+    normalizedSearch === '' ||
+    r.title.toLowerCase().includes(normalizedSearch) ||
+    (r.building || '').toLowerCase().includes(normalizedSearch)
   ).slice(0, MAX_ACTIVE_REPORTS)
+
+  // bote_mallas.estatus es un agregado (dañado > pendiente > en_proceso >
+  // disponible) del edificio completo, pero al filtrar el usuario espera ver
+  // el edificio si CUALQUIERA de sus reportes coincide con el filtro, no solo
+  // si el agregado (el peor caso) coincide -- ej: un edificio con un reporte
+  // pendiente y uno en_proceso muestra el agregado "pendiente", pero debe
+  // seguir apareciendo si se filtra por "en proceso".
+  const statusFilterEstatus = statusFilter.map((t) => FILTER_TYPE_TO_ESTATUS[t] || t)
+  const edificioCoincideFiltro = (e) =>
+    statusFilterEstatus.length === 0 ||
+    statusFilterEstatus.includes(e.estatus) ||
+    e.reportes.some((r) => statusFilterEstatus.includes(r.estatus))
+  const edificiosVisibles = edificios
+    .filter(edificioCoincideFiltro)
+    .filter((e) =>
+      normalizedSearch === '' ||
+      (e.letra || '').toLowerCase().includes(normalizedSearch) ||
+      e.reportes.some((r) => r.titulo.toLowerCase().includes(normalizedSearch))
+    )
+
+  const edificiosConAlerta = edificios.filter((e) => e.estatus !== 'disponible').length
 
   return (
     <div className="map-app">
@@ -42,10 +103,10 @@ export default function MapView() {
           <Link to="/reports" className="nav-item">Reportes</Link>
           <Link to="/events" className="nav-item">Eventos</Link>
         </nav>
-        <div className="right">
-          <div className="username">Diego A.</div>
+        <button className="right user-menu" onClick={() => cerrarSesion(navigate)} title="Cerrar sesión">
+          <div className="username">{usuario?.nombre || 'Usuario'}</div>
           <div className="avatar" aria-hidden="true" />
-        </div>
+        </button>
       </header>
 
       <div className="container">
@@ -66,18 +127,25 @@ export default function MapView() {
 
         <main className="map-area">
           <div className="map-search">
-            <input placeholder="Buscar edificio o punto..." />
+            <input
+              placeholder="Buscar edificio o punto..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
 
-          <div className="map-canvas" role="img" aria-label="Mapa interactivo del campus">
+          <div className="map-canvas" ref={containerRef} role="img" aria-label="Mapa interactivo del campus">
             <div
-              className="map-bg"
-              style={{ backgroundImage: `url(${campusMap})`, backgroundPosition: `${position.x}% ${position.y}%` }}
+              className="map-layer"
+              style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
               onPointerLeave={onPointerUp}
-            />
+            >
+              <img ref={imageRef} src={campusMap} className="map-image" alt="" draggable={false} />
+              <EdificioMarcadores edificios={edificiosVisibles} />
+            </div>
           </div>
 
           <div className="bottom-bar">
@@ -88,7 +156,7 @@ export default function MapView() {
               <span className="dot blue" /> En proceso
               <span className="dot red" /> Dañado
             </div>
-            <div className="stats">Total de puntos ecológicos: 18 &nbsp;|&nbsp; Reportes activos: {activeReports.length} &nbsp;|&nbsp; Resueltos hoy: 2</div>
+            <div className="stats">Edificios con alerta: {edificiosConAlerta} &nbsp;|&nbsp; Reportes activos: {activeReports.length}</div>
           </div>
         </main>
 

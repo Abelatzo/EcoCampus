@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { cerrarSesion } from './session'
 import './AdminEvents.scss'
 
 
@@ -59,8 +60,9 @@ function toDatetimeLocal(isoValue) {
 }
 
 export default function AdminEvents() {
+  const usuario = JSON.parse(sessionStorage.getItem('usuario') || 'null')
   const navigate = useNavigate()
-  const token = localStorage.getItem('token')
+  const token = sessionStorage.getItem('token')
   const API = import.meta.env.VITE_API_URL
   const headers = {
     'Authorization': `Bearer ${token}`,
@@ -91,11 +93,6 @@ export default function AdminEvents() {
   const [editDescription, setEditDescription] = useState('')
   const [deleteTarget, setDeleteTarget] = useState(null)
 
-  useEffect(() => {
-    if (!token) { navigate('/login'); return }
-    fetchEventos()
-  }, [])
-
   const fetchEventos = async () => {
     setLoading(true)
     setErrorMsg('')
@@ -113,6 +110,12 @@ export default function AdminEvents() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (!token) { navigate('/login'); return }
+    queueMicrotask(fetchEventos)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const selectFilter = (f) => {
     setActiveFilter(f)
@@ -256,10 +259,10 @@ export default function AdminEvents() {
           <Link to="/admin/users" className="nav-item">Usuarios</Link>
           <Link to="/admin/panel" className="nav-item">Panel</Link>
         </nav>
-        <div className="right">
-          <div className="username">Admin</div>
+        <button className="right user-menu" onClick={() => cerrarSesion(navigate)} title="Cerrar sesión">
+          <div className="username">{usuario?.nombre || 'Admin'}</div>
           <div className="avatar admin-avatar" aria-hidden="true" />
-        </div>
+        </button>
       </header>
 
       <div className="page-content">

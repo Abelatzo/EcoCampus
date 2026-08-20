@@ -1,0 +1,66 @@
+@use './_variables';
+
+// Un marcador por edificio (letra + color de bote_mallas.estatus, mismos
+// colores que la leyenda). Grande y con anillo pulsante a proposito -- una
+// version anterior mas chica se perdia contra el fondo satelital.
+.edificio-marker{
+  position:absolute;
+  transform:translate(-50%,-50%);
+  width:40px;
+  height:40px;
+  border-radius:50%;
+  border:3px solid #fff;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  color:#fff;
+  cursor:pointer;
+  box-shadow:0 3px 10px rgba(0,0,0,0.45), 0 0 0 3px rgba(255,255,255,0.5);
+  z-index:4;
+}
+.edificio-marker::before{
+  content:'';
+  position:absolute;
+  inset:-8px;
+  border-radius:50%;
+  border:2px solid currentColor;
+  opacity:0.55;
+  animation:edificio-marker-pulse 1.8s ease-out infinite;
+}
+.edificio-marker.green{background:var(--green); color:var(--green)}
+.edificio-marker.orange{background:var(--orange); color:var(--orange)}
+.edificio-marker.blue{background:var(--blue); color:var(--blue)}
+.edificio-marker.red{background:var(--red); color:var(--red)}
+.edificio-marker-icon{font-size:13px; line-height:1; color:#fff}
+.edificio-marker-letra{font-size:12px; line-height:1; font-weight:800; color:#fff; margin-top:1px}
+
+@keyframes edificio-marker-pulse{
+  0%{transform:scale(0.85); opacity:0.6}
+  100%{transform:scale(1.35); opacity:0}
+}
+
+// Sin reportes activos: sin anillo pulsante ni cursor de clic, para no
+// insinuar que hay algo que revisar cuando el edificio esta disponible.
+.edificio-marker.green::before{display:none}
+
+.marker-badge{
+  position:absolute; top:-6px; right:-6px;
+  background:#fff; color:#222; border-radius:50%; width:18px; height:18px;
+  display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:800;
+  box-shadow:0 1px 3px rgba(0,0,0,0.3);
+  z-index:1;
+}
+
+.marker-popover{
+  position:absolute; bottom:calc(100% + 14px); left:50%; transform:translateX(-50%);
+  width:220px; background:#fff; border-radius:8px; box-shadow:0 10px 24px rgba(0,0,0,0.18);
+  padding:10px; z-index:6; cursor:default; text-align:left;
+}
+.marker-popover-title{font-weight:700; font-size:12px; color:var(--green-dark); margin-bottom:6px; display:flex; justify-content:space-between; align-items:center}
+.marker-popover-count{font-size:10px; font-weight:600; color:var(--muted)}
+.marker-report-list{list-style:none; margin:0; padding:0; max-height:180px; overflow-y:auto; display:flex; flex-direction:column; gap:8px}
+.marker-report-list li{border-top:1px solid rgba(0,0,0,0.06); padding-top:6px}
+.marker-report-list li:first-child{border-top:none; padding-top:0}
+.marker-report-title{font-size:11px; font-weight:600; color:#2b2b2b}
+.marker-report-desc{font-size:10.5px; color:var(--muted); margin-top:2px; line-height:1.4}

@@ -1,4 +1,5 @@
 @use './_variables';
+@use './_edificioMarker' as *;
 
 .map-app{
   font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
@@ -24,6 +25,8 @@
 .topbar .right{display:flex; align-items:center; gap:10px}
 .topbar .username{opacity:0.95; margin-right:4px; font-size:13px}
 .topbar .avatar{width:24px; height:24px; background:rgba(255,255,255,0.22); border-radius:50%}
+.topbar .user-menu{border:none; background:transparent; color:inherit; font:inherit; cursor:pointer; border-radius:20px; padding:4px 8px; transition:background .15s}
+.topbar .user-menu:hover{background:rgba(255,255,255,0.12)}
 
 .container{display:flex; height:calc(100vh - 52px);}
 
@@ -71,9 +74,13 @@
 .map-search input{width:320px; max-width:60%; padding:7px 10px; border-radius:8px; border:1px solid rgba(0,0,0,0.06); background:#fff; font-size:12px}
 
 .map-canvas{flex:1; position:relative; margin:0 14px 6px 14px; border-radius:2px; overflow:hidden; background:#e9ece7;}
-.map-canvas .map-bg{position:absolute; inset:0; background-repeat:no-repeat; background-size:cover; cursor:grab; touch-action:none; user-select:none;}
-.map-canvas .map-bg:active{cursor:grabbing}
-.map-canvas::after{content:'Mapa interactivo del campus UTCJ'; position:absolute; right:14px; bottom:10px; font-size:11px; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,0.6); z-index:1}
+.map-canvas .map-layer{position:absolute; top:0; left:0; cursor:grab; touch-action:none; will-change:transform;}
+.map-canvas .map-layer:active{cursor:grabbing}
+.map-canvas .map-layer.marking{cursor:crosshair}
+.map-canvas .map-image{display:block; width:1500px; max-width:none; height:auto; user-select:none; pointer-events:none;}
+.map-canvas::after{content:'Mapa interactivo del campus UTCJ'; position:absolute; right:14px; bottom:10px; font-size:11px; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,0.6); z-index:1; pointer-events:none;}
+
+/* Marcadores de alerta por edificio: ver ./_edificioMarker.scss */
 
 .popup{position:absolute; transform:translate(-50%,0); width:190px; background:var(--card-bg); border-radius:6px; box-shadow:0 8px 20px rgba(0,0,0,0.12); padding:10px; border:1px solid rgba(0,0,0,0.06); z-index:5}
 .popup::before{content:''; position:absolute; left:50%; top:-8px; transform:translateX(-50%); border-width:0 8px 8px 8px; border-style:solid; border-color: transparent transparent #fff transparent}
